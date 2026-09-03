@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 
 export default function App() {
-  // Gerçek Telegram verisini yakalama (Yoksa test için varsayılan değerler atanır)
   const tg = window.Telegram?.WebApp;
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   const username = tg?.initDataUnsafe?.user?.username || 'Umit';
@@ -17,7 +16,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('game');
   const [showDailyModal, setShowDailyModal] = useState(false); 
-  const [streakDay, setStreakDay] = useState(3);
+  const [streakDay, setStreakDay] = useState(1);
   const [claimedToday, setClaimedToday] = useState(false);
 
   const CREATION_COST = 5000;
@@ -39,31 +38,50 @@ export default function App() {
     { day: 7, reward: 150 },
   ];
 
-  // 1. UYGULAMA AÇILINCA GERÇEK TELEGRAM ID İLE VERİTABANINDAN KULLANICIYI ÇEK VEYA OLUŞTUR
+  // Bugünün tarihini YYYY-MM-DD formatında al
+  const getTodayDateString = () => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  };
+
+  // 1. UYGULAMA AÇILINCA KULLANICIYI ÇEK VEYA OLUŞTUR
   useEffect(() => {
     async function fetchUserData() {
       let { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('telegram_id', telegramId)
-        .single();
+        .eq('telegram_id', telegramId);
 
-      if (error || !data) {
-        const { data: newData, error: insertError } = await supabase
+      const todayStr = getTodayDateString();
+
+      if (error || !data || data.length === 0) {
+        let { data: newData, error: insertError } = await supabase
           .from('users')
-          .insert([{ telegram_id: telegramId, username: username, points: 0, energy: 100, tap_power: 1 }])
-          .select()
-          .single();
+          .insert([{ 
+            telegram_id: telegramId, 
+            username: username, 
+            points: 0, 
+            energy: 100, 
+            tap_power: 1,
+            streak: 1,
+            last_claim_date: ''
+          }])
+          .select();
 
-        if (!insertError && newData) {
-          setPoints(newData.points);
-          setEnergy(newData.energy);
-          setTapPower(newData.tap_power);
+        if (!insertError && newData && newData.length > 0) {
+          setPoints(newData[0].points);
+          setEnergy(newData[0].energy);
+          setTapPower(newData[0].tap_power);
+          setStreakDay(newData[0].streak || 1);
+          setClaimedToday(newData[0].last_claim_date === todayStr);
         }
       } else {
-        setPoints(data.points);
-        setEnergy(data.energy);
-        setTapPower(data.tap_power);
+        const user = data[0];
+        setPoints(user.points);
+        setEnergy(user.energy);
+        setTapPower(user.tap_power);
+        setStreakDay(user.streak || 1);
+        setClaimedToday(user.last_claim_date === todayStr);
       }
     }
 
@@ -123,13 +141,26 @@ export default function App() {
     setTimeout(() => elem.remove(), 800);
   };
 
-  const claimDailyReward = (rewardAmount) => {
+  const claimDailyReward = async (rewardAmount) => {
     if (claimedToday) return;
+
+    const todayStr = getTodayDateString();
+    const nextStreak = streakDay >= 7 ? 1 : streakDay + 1; // 7 günden sonra tekrar 1'e döner veya 7'de sabit kalabilir
     const updatedPoints = points + rewardAmount;
+
     setPoints(updatedPoints);
     setClaimedToday(true);
     setShowDailyModal(false);
-    syncWithSupabase(updatedPoints, energy);
+
+    // Veritabanında puanı, bugünkü tarihi ve sonraki seri gününü güncelle
+    await supabase
+      .from('users')
+      .update({ 
+        points: updatedPoints, 
+        last_claim_date: todayStr,
+        streak: nextStreak 
+      })
+      .eq('telegram_id', telegramId);
   };
 
   const handleCreateSquad = (e) => {
@@ -177,7 +208,10 @@ export default function App() {
     supabase
       .from('users')
       .update({ points: updatedPoints, tap_power: updatedPower })
-      .eq('telegram_id', telegramId);
+      .eq('telegram_id', telegramId)
+      .then(({ error }) => {
+        if (error) console.log("Multitap güncelleme hatası:", error.message);
+      });
   };
 
   const buyEnergyTank = () => {
@@ -224,7 +258,7 @@ export default function App() {
             onClick={() => setShowDailyModal(true)}
             className="bg-purple-600/30 border border-purple-500/50 text-purple-300 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-purple-600/50 transition-colors cursor-pointer"
           >
-            🎁 Günlük
+            🎁 Günlük {claimedToday ? '✅' : ''}
           </button>
           <div className="text-right">
             <span className="text-xs text-slate-400 uppercase tracking-widest">Lig</span>
@@ -415,9 +449,13 @@ export default function App() {
             <button 
               onClick={() => claimDailyReward(dailyRewards[streakDay - 1].reward)}
               disabled={claimedToday}
-              className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-bold rounded-2xl cursor-pointer"
+              className={`w-full py-3.5 font-bold rounded-2xl transition-colors ${
+                claimedToday 
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-purple-600 to-cyan-500 text-white cursor-pointer'
+              }`}
             >
-              {claimedToday ? 'Alındı ✅' : 'Ödülü Al 🚀'}
+              {claimedToday ? 'Bugün Alındı ✅' : 'Ödülü Al 🚀'}
             </button>
           </div>
         </div>
