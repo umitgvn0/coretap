@@ -145,14 +145,13 @@ export default function App() {
     if (claimedToday) return;
 
     const todayStr = getTodayDateString();
-    const nextStreak = streakDay >= 7 ? 1 : streakDay + 1; // 7 günden sonra tekrar 1'e döner veya 7'de sabit kalabilir
+    const nextStreak = streakDay >= 7 ? 1 : streakDay + 1; 
     const updatedPoints = points + rewardAmount;
 
     setPoints(updatedPoints);
     setClaimedToday(true);
     setShowDailyModal(false);
 
-    // Veritabanında puanı, bugünkü tarihi ve sonraki seri gününü güncelle
     await supabase
       .from('users')
       .update({ 
@@ -432,8 +431,22 @@ export default function App() {
 
       {/* MODAL */}
       {showDailyModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
+        <div 
+          onClick={() => setShowDailyModal(false)}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative cursor-default"
+          >
+            {/* Kapatma Çarpı Butonu */}
+            <button 
+              onClick={() => setShowDailyModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              ✕
+            </button>
+
             <div className="text-center mb-6">
               <span className="text-3xl">🎁</span>
               <h2 className="text-xl font-black text-white mt-2">Günlük Giriş</h2>
