@@ -7,7 +7,7 @@ export default function App() {
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   const username = tg?.initDataUnsafe?.user?.username || 'Umit';
 
-  const [points, setPoints] = useState(1250);
+  const [points, setPoints] = useState(0);
   const [energy, setEnergy] = useState(100);
   const [maxEnergy, setMaxEnergy] = useState(100);
   const [tapPower, setTapPower] = useState(1);
@@ -51,7 +51,7 @@ export default function App() {
       if (error || !data) {
         const { data: newData, error: insertError } = await supabase
           .from('users')
-          .insert([{ telegram_id: telegramId, username: username, points: 1250, energy: 100, tap_power: 1 }])
+          .insert([{ telegram_id: telegramId, username: username, points: 0, energy: 100, tap_power: 1 }])
           .select()
           .single();
 
