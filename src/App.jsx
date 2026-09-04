@@ -38,6 +38,20 @@ export default function App() {
     { day: 7, reward: 150 },
   ];
 
+  // Puanlara göre dinamik lig hesaplama fonksiyonu
+  const getCurrentLeague = (pts) => {
+    if (pts >= 500000) return { name: 'Core King 👑', color: 'text-yellow-300' };
+    if (pts >= 250000) return { name: 'Grandmaster ⚡', color: 'text-purple-400' };
+    if (pts >= 100000) return { name: 'Master 🔮', color: 'text-indigo-400' };
+    if (pts >= 50000)  return { name: 'Elmas 💎', color: 'text-cyan-300' };
+    if (pts >= 25000)  return { name: 'Platin 🛡️', color: 'text-blue-400' };
+    if (pts >= 10000)  return { name: 'Altın 🥇', color: 'text-yellow-400' };
+    if (pts >= 5000)   return { name: 'Gümüş 🥈', color: 'text-slate-300' };
+    return { name: 'Bronz 🥉', color: 'text-amber-600' };
+  };
+
+  const currentLeague = getCurrentLeague(points);
+
   // Bugünün tarihini YYYY-MM-DD formatında al
   const getTodayDateString = () => {
     const d = new Date();
@@ -261,7 +275,7 @@ export default function App() {
           </button>
           <div className="text-right">
             <span className="text-xs text-slate-400 uppercase tracking-widest">Lig</span>
-            <p className="text-sm font-bold text-cyan-400">Gümüş II 🛡️</p>
+            <p className={`text-sm font-bold ${currentLeague.color}`}>{currentLeague.name}</p>
           </div>
         </div>
       </div>
