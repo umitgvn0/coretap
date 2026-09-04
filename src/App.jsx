@@ -260,7 +260,7 @@ export default function App() {
     syncWithSupabase(updatedPoints, updatedMaxEnergy);
   };
 
-  // TELEGRAM STARS ÖDEME VE AUTO-BOT AKTİVASYONU
+  // TELEGRAM STARS ÖDEME VE FİYATLANDIRMA (Full Enerji: 100 Stars, Auto-Bot: 500 Stars)
   const buyTelegramStarsPackage = (packageName, starsPrice, rewardType) => {
     if (!tg || !tg.openInvoice) {
       alert(`[Simülasyon Modu] ${packageName} (${starsPrice} Stars) satın alındı!`);
@@ -410,21 +410,21 @@ export default function App() {
             <h2 className="text-sm font-black text-purple-300 mb-1">⭐ Telegram Stars / VIP Mağaza</h2>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <button 
-                onClick={() => buyTelegramStarsPackage('Full Enerji', 50, 'energy')}
+                onClick={() => buyTelegramStarsPackage('Full Enerji', 100, 'energy')}
                 className="bg-slate-900/80 border border-purple-500/30 p-3 rounded-xl text-left cursor-pointer"
               >
                 <span className="text-base block mb-1">⚡</span>
                 <span className="font-bold text-xs text-white block">Full Enerji</span>
-                <span className="text-[10px] text-yellow-400 font-semibold">⭐ 50 Stars</span>
+                <span className="text-[10px] text-yellow-400 font-semibold">⭐ 100 Stars</span>
               </button>
               <button 
-                onClick={() => buyTelegramStarsPackage('Auto-Bot', 250, 'autobot')}
+                onClick={() => buyTelegramStarsPackage('Auto-Bot', 500, 'autobot')}
                 disabled={hasAutobot}
                 className={`border p-3 rounded-xl text-left ${hasAutobot ? 'bg-slate-800 border-slate-700 opacity-60 cursor-not-allowed' : 'bg-slate-900/80 border-purple-500/30 cursor-pointer'}`}
               >
                 <span className="text-base block mb-1">🤖</span>
                 <span className="font-bold text-xs text-white block">{hasAutobot ? 'Auto-Bot Aktif ✅' : 'Auto-Bot'}</span>
-                <span className="text-[10px] text-yellow-400 font-semibold">{hasAutobot ? 'Satın Alındı' : '⭐ 250 Stars'}</span>
+                <span className="text-[10px] text-yellow-400 font-semibold">{hasAutobot ? 'Satın Alındı' : '⭐ 500 Stars'}</span>
               </button>
             </div>
           </div>
