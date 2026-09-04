@@ -10,6 +10,7 @@ export default function App() {
   const [energy, setEnergy] = useState(100);
   const [maxEnergy, setMaxEnergy] = useState(100);
   const [tapPower, setTapPower] = useState(1);
+  const [hasAutobot, setHasAutobot] = useState(false);
   
   const [lastClickTime, setLastClickTime] = useState(0);
   const CLICK_COOLDOWN = 150; 
@@ -52,7 +53,6 @@ export default function App() {
 
   const currentLeague = getCurrentLeague(points);
 
-  // Bugünün tarihini YYYY-MM-DD formatında al
   const getTodayDateString = () => {
     const d = new Date();
     return d.toISOString().split('T')[0];
@@ -78,7 +78,8 @@ export default function App() {
             energy: 100, 
             tap_power: 1,
             streak: 1,
-            last_claim_date: ''
+            last_claim_date: '',
+            has_autobot: false
           }])
           .select();
 
@@ -88,6 +89,7 @@ export default function App() {
           setTapPower(newData[0].tap_power);
           setStreakDay(newData[0].streak || 1);
           setClaimedToday(newData[0].last_claim_date === todayStr);
+          setHasAutobot(newData[0].has_autobot || false);
         }
       } else {
         const user = data[0];
@@ -96,21 +98,21 @@ export default function App() {
         setTapPower(user.tap_power);
         setStreakDay(user.streak || 1);
         setClaimedToday(user.last_claim_date === todayStr);
+        setHasAutobot(user.has_autobot || false);
       }
     }
 
     fetchUserData();
   }, [telegramId, username]);
 
-  // 2. VERİTABANINI GÜNCELLEME FONKSİYONU
-  const syncWithSupabase = async (newPoints, newEnergy) => {
+  const syncWithSupabase = async (newPoints, newEnergy, autobotStatus = hasAutobot) => {
     await supabase
       .from('users')
-      .update({ points: newPoints, energy: newEnergy })
+      .update({ points: newPoints, energy: newEnergy, has_autobot: autobotStatus })
       .eq('telegram_id', telegramId);
   };
 
-  // Enerjinin saniyede çok yavaş dolması
+  // Enerjinin dolması
   useEffect(() => {
     const timer = setInterval(() => {
       setEnergy((prev) => {
@@ -120,6 +122,21 @@ export default function App() {
     }, 2000);
     return () => clearInterval(timer);
   }, [maxEnergy]);
+
+  // AUTO-BOT PASİF KAZANÇ DÖNGÜSÜ (Her 3 saniyede bir arkada puan ekler)
+  useEffect(() => {
+    if (!hasAutobot) return;
+
+    const autoBotTimer = setInterval(() => {
+      setPoints((prevPoints) => {
+        const updated = prevPoints + 5; // Her 3 saniyede 5 puan
+        syncWithSupabase(updated, energy, true);
+        return updated;
+      });
+    }, 3000);
+
+    return () => clearInterval(autoBotTimer);
+  }, [hasAutobot, energy]);
 
   const handleTap = (e) => {
     const now = Date.now();
@@ -243,10 +260,10 @@ export default function App() {
     syncWithSupabase(updatedPoints, updatedMaxEnergy);
   };
 
-  // TELEGRAM STARS ÖDEME TETİKLEYİCİSİ
+  // TELEGRAM STARS ÖDEME VE AUTO-BOT AKTİVASYONU
   const buyTelegramStarsPackage = (packageName, starsPrice, rewardType) => {
     if (!tg || !tg.openInvoice) {
-      alert(`[Simülasyon Modu] Telegram ortamında olmadığın için ${packageName} (${starsPrice} Stars) satın alındı!`);
+      alert(`[Simülasyon Modu] ${packageName} (${starsPrice} Stars) satın alındı!`);
       grantReward(rewardType);
       return;
     }
@@ -254,7 +271,7 @@ export default function App() {
     tg.showConfirm(`${packageName} için ${starsPrice} Telegram Stars ödemek istiyor musun?`, async (confirmed) => {
       if (confirmed) {
         grantReward(rewardType);
-        tg.showAlert(`Tebrikler! ${packageName} başarıyla satın alındı! 🌟`);
+        tg.showAlert(`Tebrikler! ${packageName} başarıyla etkinleştirildi! 🌟`);
       }
     });
   };
@@ -264,9 +281,8 @@ export default function App() {
       setEnergy(maxEnergy);
       syncWithSupabase(points, maxEnergy);
     } else if (rewardType === 'autobot') {
-      const updatedPoints = points + 50000;
-      setPoints(updatedPoints);
-      syncWithSupabase(updatedPoints, energy);
+      setHasAutobot(true);
+      syncWithSupabase(points, energy, true);
     }
   };
 
@@ -299,9 +315,16 @@ export default function App() {
       {activeTab === 'game' && (
         <div className="flex flex-col items-center justify-center my-auto z-10 relative w-full">
           {mySquad && (
-            <div className="mb-6 bg-slate-900/60 border border-slate-800 px-4 py-2 rounded-xl text-xs text-slate-300 flex items-center gap-2">
+            <div className="mb-4 bg-slate-900/60 border border-slate-800 px-4 py-2 rounded-xl text-xs text-slate-300 flex items-center gap-2">
               <span>🛡️ Klanın:</span>
               <span className="text-cyan-400 font-bold">{mySquad.name}</span>
+            </div>
+          )}
+
+          {hasAutobot && (
+            <div className="mb-4 bg-purple-950/40 border border-purple-500/40 px-3 py-1.5 rounded-xl text-[11px] text-purple-300 flex items-center gap-2 animate-pulse">
+              <span>🤖 Auto-Bot Aktif:</span>
+              <span className="text-yellow-400 font-bold">Pasif Gelir Kasılıyor (+5 / 3sn)</span>
             </div>
           )}
 
@@ -396,11 +419,12 @@ export default function App() {
               </button>
               <button 
                 onClick={() => buyTelegramStarsPackage('Auto-Bot', 250, 'autobot')}
-                className="bg-slate-900/80 border border-purple-500/30 p-3 rounded-xl text-left cursor-pointer"
+                disabled={hasAutobot}
+                className={`border p-3 rounded-xl text-left ${hasAutobot ? 'bg-slate-800 border-slate-700 opacity-60 cursor-not-allowed' : 'bg-slate-900/80 border-purple-500/30 cursor-pointer'}`}
               >
                 <span className="text-base block mb-1">🤖</span>
-                <span className="font-bold text-xs text-white block">Auto-Bot</span>
-                <span className="text-[10px] text-yellow-400 font-semibold">⭐ 250 Stars</span>
+                <span className="font-bold text-xs text-white block">{hasAutobot ? 'Auto-Bot Aktif ✅' : 'Auto-Bot'}</span>
+                <span className="text-[10px] text-yellow-400 font-semibold">{hasAutobot ? 'Satın Alındı' : '⭐ 250 Stars'}</span>
               </button>
             </div>
           </div>
@@ -468,7 +492,6 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
             className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative cursor-default"
           >
-            {/* Kapatma Çarpı Butonu */}
             <button 
               onClick={() => setShowDailyModal(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
