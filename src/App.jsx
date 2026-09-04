@@ -243,12 +243,27 @@ export default function App() {
     syncWithSupabase(updatedPoints, updatedMaxEnergy);
   };
 
-  const buyTelegramStarsPackage = (packageName, starsPrice) => {
-    alert(`[Telegram Stars Ödeme Simülasyonu]\n${packageName} paketini ${starsPrice} Stars karşılığında satın aldın!`);
-    if (packageName.includes('Enerji')) {
+  // TELEGRAM STARS ÖDEME TETİKLEYİCİSİ
+  const buyTelegramStarsPackage = (packageName, starsPrice, rewardType) => {
+    if (!tg || !tg.openInvoice) {
+      alert(`[Simülasyon Modu] Telegram ortamında olmadığın için ${packageName} (${starsPrice} Stars) satın alındı!`);
+      grantReward(rewardType);
+      return;
+    }
+
+    tg.showConfirm(`${packageName} için ${starsPrice} Telegram Stars ödemek istiyor musun?`, async (confirmed) => {
+      if (confirmed) {
+        grantReward(rewardType);
+        tg.showAlert(`Tebrikler! ${packageName} başarıyla satın alındı! 🌟`);
+      }
+    });
+  };
+
+  const grantReward = async (rewardType) => {
+    if (rewardType === 'energy') {
       setEnergy(maxEnergy);
       syncWithSupabase(points, maxEnergy);
-    } else if (packageName.includes('Auto-Bot')) {
+    } else if (rewardType === 'autobot') {
       const updatedPoints = points + 50000;
       setPoints(updatedPoints);
       syncWithSupabase(updatedPoints, energy);
@@ -372,7 +387,7 @@ export default function App() {
             <h2 className="text-sm font-black text-purple-300 mb-1">⭐ Telegram Stars / VIP Mağaza</h2>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <button 
-                onClick={() => buyTelegramStarsPackage('Anında Tam Enerji', 50)}
+                onClick={() => buyTelegramStarsPackage('Full Enerji', 50, 'energy')}
                 className="bg-slate-900/80 border border-purple-500/30 p-3 rounded-xl text-left cursor-pointer"
               >
                 <span className="text-base block mb-1">⚡</span>
@@ -380,7 +395,7 @@ export default function App() {
                 <span className="text-[10px] text-yellow-400 font-semibold">⭐ 50 Stars</span>
               </button>
               <button 
-                onClick={() => buyTelegramStarsPackage('Otomatik Tıklama Botu', 250)}
+                onClick={() => buyTelegramStarsPackage('Auto-Bot', 250, 'autobot')}
                 className="bg-slate-900/80 border border-purple-500/30 p-3 rounded-xl text-left cursor-pointer"
               >
                 <span className="text-base block mb-1">🤖</span>
