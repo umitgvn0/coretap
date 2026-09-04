@@ -54,7 +54,6 @@ export default function App() {
     return d.toISOString().split('T')[0];
   };
 
-  // 1. KULLANICI VE KLAN VERİLERİNİ ÇEK
   useEffect(() => {
     async function fetchUserData() {
       let { data, error } = await supabase
@@ -127,7 +126,6 @@ export default function App() {
 
     if (!error && squadData) {
       setMySquad(squadData);
-      // Klan üyelerini çek
       let { data: membersData } = await supabase
         .from('users')
         .select('*')
@@ -144,7 +142,6 @@ export default function App() {
       .eq('telegram_id', telegramId);
   };
 
-  // Enerji dolumu
   useEffect(() => {
     const timer = setInterval(() => {
       setEnergy((prev) => (prev < maxEnergy ? prev + 1 : maxEnergy));
@@ -152,7 +149,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, [maxEnergy]);
 
-  // Auto-Bot pasif kazanç
   useEffect(() => {
     if (!hasAutobot) return;
     const autoBotTimer = setInterval(() => {
@@ -203,34 +199,58 @@ export default function App() {
     setTimeout(() => elem.remove(), 800);
   };
 
-  // KLAN KURMA (300 Telegram Stars)
-  const handleCreateSquadStars = () => {
+  // GERÇEK TELEGRAM STARS İLE KLAN KURMA
+  const handleCreateSquadStars = async () => {
     if (mySquad) {
       alert("Zaten bir klandasın! Önce mevcut klandan ayrılmalısın.");
       return;
     }
 
-    if (!tg || !tg.openInvoice) {
-      // Simülasyon Modu
-      createSquadInDB("SimulatedSquad_" + Math.floor(Math.random()*1000));
-      return;
-    }
-
-    tg.showConfirm("Klan Kurmak için 300 Telegram Stars ödemek istiyor musun?", async (confirmed) => {
-      if (confirmed) {
-        createSquadInDB(squadNameInput.trim());
-      }
-    });
-  };
-
-  const createSquadInDB = async (customName) => {
-    const squadName = customName || squadNameInput.trim();
+    const squadName = squadNameInput.trim();
     if (!squadName) {
       alert("Lütfen bir klan adı girin!");
       return;
     }
 
-    // 1. Klanı oluştur
+    if (!tg || !tg.openInvoice) {
+      alert("Bu özellik yalnızca Telegram içinde çalışır!");
+      return;
+    }
+
+    try {
+      // 1. Vercel API'den Fatura Linki Al
+      const res = await fetch('/api/create-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Klan Kurulumu: ${squadName}`,
+          description: 'CoreTap oyununda özel klan kurma ücreti (300 Stars)',
+          amount: 300,
+          payload: `create_squad_${squadName}_${telegramId}`
+        })
+      });
+
+      const data = await res.json();
+      if (!data.invoiceLink) {
+        alert("Fatura oluşturulamadı: " + (data.error || 'Bilinmeyen hata'));
+        return;
+      }
+
+      // 2. Telegram Fatura Ekranını Aç
+      tg.openInvoice(data.invoiceLink, async (status) => {
+        if (status === 'paid') {
+          // Ödeme Başarılıysa Klanı Kur
+          await createSquadInDB(squadName);
+        } else {
+          alert("Ödeme iptal edildi veya başarısız oldu.");
+        }
+      });
+    } catch (err) {
+      alert("Ödeme başlatılamadı: " + err.message);
+    }
+  };
+
+  const createSquadInDB = async (squadName) => {
     let { data, error } = await supabase
       .from('squads')
       .insert([{
@@ -248,7 +268,6 @@ export default function App() {
 
     const newSquad = data[0];
 
-    // 2. Kullanıcının squad_id'sini güncelle
     await supabase
       .from('users')
       .update({ squad_id: newSquad.id })
@@ -261,7 +280,6 @@ export default function App() {
     if (tg?.showAlert) tg.showAlert(`Tebrikler! '${squadName}' klanı başarıyla kuruldu! 🛡️`);
   };
 
-  // KLANA KATILMA
   const handleJoinSquad = async (squad) => {
     if (mySquad) {
       alert("Zaten bir klandasın!");
@@ -273,13 +291,11 @@ export default function App() {
       return;
     }
 
-    // Kullanıcıyı güncelle
     await supabase
       .from('users')
       .update({ squad_id: squad.id })
       .eq('telegram_id', telegramId);
 
-    // Klan üye sayısını artır
     await supabase
       .from('squads')
       .update({ members_count: squad.members_count + 1 })
@@ -289,12 +305,11 @@ export default function App() {
     fetchSquadDetails(squad.id);
   };
 
-  // KLANDAN AYRILMA
   const handleLeaveSquad = async () => {
     if (!mySquad) return;
 
     if (mySquad.leader_telegram_id === telegramId) {
-      alert("Klan başkanı klandan ayrılamaz! Klanı silmek yerine üye atabilir veya yönetebilirsin.");
+      alert("Klan başkanı klandan ayrılamaz!");
       return;
     }
 
@@ -313,25 +328,14 @@ export default function App() {
     fetchSquadsList();
   };
 
-  // BAŞKANIN ÜYE ATMA YETKİSİ (KICK)
   const handleKickMember = async (memberTelegramId) => {
-    if (mySquad.leader_telegram_id !== telegramId) {
-      alert("Bu işlem için yetkin yok!");
-      return;
-    }
+    if (mySquad.leader_telegram_id !== telegramId) return;
 
-    if (memberTelegramId === telegramId) {
-      alert("Kendini klandan atamazsın!");
-      return;
-    }
-
-    // Üyenin squad_id'sini null yap
     await supabase
       .from('users')
       .update({ squad_id: null })
       .eq('telegram_id', memberTelegramId);
 
-    // Klan üye sayısını düşür
     await supabase
       .from('squads')
       .update({ members_count: Math.max(1, mySquad.members_count - 1) })
@@ -378,18 +382,42 @@ export default function App() {
     syncWithSupabase(updatedPoints, updatedMaxEnergy);
   };
 
-  const buyTelegramStarsPackage = (packageName, starsPrice, rewardType) => {
+  // GERÇEK STARS İLE MAĞAZA ÜRÜNLERİ SATIN ALMA
+  const buyTelegramStarsPackage = async (packageName, starsPrice, rewardType) => {
     if (!tg || !tg.openInvoice) {
-      alert(`[Simülasyon Modu] ${packageName} (${starsPrice} Stars) satın alındı!`);
-      grantReward(rewardType);
+      alert("Bu özellik yalnızca Telegram içinde çalışır!");
       return;
     }
-    tg.showConfirm(`${packageName} için ${starsPrice} Telegram Stars ödemek istiyor musun?`, async (confirmed) => {
-      if (confirmed) {
-        grantReward(rewardType);
-        tg.showAlert(`Tebrikler! ${packageName} başarıyla etkinleştirildi! 🌟`);
+
+    try {
+      const res = await fetch('/api/create-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: packageName,
+          description: `CoreTap VIP Mağaza: ${packageName}`,
+          amount: starsPrice,
+          payload: `buy_${rewardType}_${telegramId}`
+        })
+      });
+
+      const data = await res.json();
+      if (!data.invoiceLink) {
+        alert("Fatura oluşturulamadı: " + (data.error || 'Bilinmeyen hata'));
+        return;
       }
-    });
+
+      tg.openInvoice(data.invoiceLink, async (status) => {
+        if (status === 'paid') {
+          grantReward(rewardType);
+          tg.showAlert(`Tebrikler! ${packageName} başarıyla etkinleştirildi! 🌟`);
+        } else {
+          alert("Ödeme iptal edildi.");
+        }
+      });
+    } catch (err) {
+      alert("Ödeme başlatılamadı: " + err.message);
+    }
   };
 
   const grantReward = async (rewardType) => {
@@ -407,8 +435,7 @@ export default function App() {
       <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Üst Bilgi */}
-      <div className="w-full max-w-md flex justify-between items-center bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10">
+      <div className="w-full max-w-md flex justify-between items-center bg-slate-900/85 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10">
         <div>
           <span className="text-xs text-slate-400 uppercase tracking-widest">CoreTap ({username})</span>
           <h1 className="text-3xl font-black text-yellow-400 tracking-wider">💎 {points.toLocaleString()}</h1>
@@ -427,7 +454,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* ORTA ALAN */}
       {activeTab === 'game' && (
         <div className="flex flex-col items-center justify-center my-auto z-10 relative w-full">
           {mySquad && (
@@ -456,7 +482,6 @@ export default function App() {
         </div>
       )}
 
-      {/* KLANLAR SEKMESİ */}
       {activeTab === 'squads' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
@@ -494,7 +519,6 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Üye Listesi ve Başkan Yetkisi */}
                 <div className="border-t border-purple-500/30 pt-2 mt-1">
                   <span className="text-[11px] text-slate-400 block mb-2">Klan Üyeleri ({squadMembers.length}/20):</span>
                   <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto">
@@ -543,7 +567,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MAĞAZA SEKMESİ */}
       {activeTab === 'store' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border border-purple-500/40 p-4 rounded-2xl shadow-xl">
@@ -600,7 +623,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Enerji Barı */}
       <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10 mb-4">
         <div className="flex justify-between text-xs font-semibold mb-2 text-slate-300">
           <span>⚡ ENERJİ</span>
@@ -614,7 +636,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Navigasyon */}
       <div className="w-full max-w-md grid grid-cols-4 gap-2 bg-slate-900/90 border border-slate-800 p-2 rounded-2xl z-10 text-center text-xs font-medium text-slate-400">
         <button onClick={() => setActiveTab('game')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'game' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Oyun</button>
         <button onClick={() => setActiveTab('squads')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'squads' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Klanlar</button>
@@ -622,7 +643,6 @@ export default function App() {
         <button onClick={() => setActiveTab('store')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'store' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Mağaza</button>
       </div>
 
-      {/* MODAL */}
       {showDailyModal && (
         <div 
           onClick={() => setShowDailyModal(false)}
