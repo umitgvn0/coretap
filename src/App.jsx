@@ -123,19 +123,32 @@ export default function App() {
     return () => clearInterval(timer);
   }, [maxEnergy]);
 
-  // AUTO-BOT PASİF KAZANÇ DÖNGÜSÜ (Her 3 saniyede bir arkada puan ekler)
+  // AUTO-BOT PASİF KAZANÇ DÖNGÜSÜ (Düzeltildi: Sadece hasAutobot değişimine bakar, enerjiye takılmaz)
   useEffect(() => {
     if (!hasAutobot) return;
 
     const autoBotTimer = setInterval(() => {
       setPoints((prevPoints) => {
-        const updated = prevPoints + 5; // Her 3 saniyede 5 puan
-        syncWithSupabase(updated, energy, true);
+        const updated = prevPoints + 5; 
         return updated;
       });
     }, 3000);
 
     return () => clearInterval(autoBotTimer);
+  }, [hasAutobot]);
+
+  // Arka plandaki puanı her 30 saniyede bir veritabanına kaydet (Sürekli istek atmamak için)
+  useEffect(() => {
+    if (!hasAutobot) return;
+    const saveInterval = setInterval(() => {
+      // O anki points değerini güncel tutmak için çağırıyoruz
+      setPoints((currentPoints) => {
+        syncWithSupabase(currentPoints, energy, true);
+        return currentPoints;
+      });
+    }, 30000); // Her 30 saniyede bir veritabanını günceller
+
+    return () => clearInterval(saveInterval);
   }, [hasAutobot, energy]);
 
   const handleTap = (e) => {
