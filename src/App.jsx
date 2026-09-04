@@ -20,14 +20,11 @@ export default function App() {
   const [streakDay, setStreakDay] = useState(1);
   const [claimedToday, setClaimedToday] = useState(false);
 
-  const CREATION_COST = 5000;
+  // Klan State'leri
   const [squadNameInput, setSquadNameInput] = useState('');
   const [mySquad, setMySquad] = useState(null);
-  const [squadsList, setSquadsList] = useState([
-    { id: 1, name: 'CyberWarriors', leader: 'Umit', membersCount: 1420, totalScore: 89400 },
-    { id: 2, name: 'TON Masters', leader: 'AksarayTeam', membersCount: 950, totalScore: 54200 },
-    { id: 3, name: 'CoreHunters', leader: 'ByteGhost', membersCount: 410, totalScore: 21100 },
-  ]);
+  const [squadsList, setSquadsList] = useState([]);
+  const [squadMembers, setSquadMembers] = useState([]);
 
   const dailyRewards = [
     { day: 1, reward: 10 },
@@ -39,7 +36,6 @@ export default function App() {
     { day: 7, reward: 150 },
   ];
 
-  // Puanlara göre dinamik lig hesaplama fonksiyonu
   const getCurrentLeague = (pts) => {
     if (pts >= 500000) return { name: 'Core King 👑', color: 'text-yellow-300' };
     if (pts >= 250000) return { name: 'Grandmaster ⚡', color: 'text-purple-400' };
@@ -58,7 +54,7 @@ export default function App() {
     return d.toISOString().split('T')[0];
   };
 
-  // 1. UYGULAMA AÇILINCA KULLANICIYI ÇEK VEYA OLUŞTUR
+  // 1. KULLANICI VE KLAN VERİLERİNİ ÇEK
   useEffect(() => {
     async function fetchUserData() {
       let { data, error } = await supabase
@@ -79,17 +75,20 @@ export default function App() {
             tap_power: 1,
             streak: 1,
             last_claim_date: '',
-            has_autobot: false
+            has_autobot: false,
+            squad_id: null
           }])
           .select();
 
         if (!insertError && newData && newData.length > 0) {
-          setPoints(newData[0].points);
-          setEnergy(newData[0].energy);
-          setTapPower(newData[0].tap_power);
-          setStreakDay(newData[0].streak || 1);
-          setClaimedToday(newData[0].last_claim_date === todayStr);
-          setHasAutobot(newData[0].has_autobot || false);
+          const user = newData[0];
+          setPoints(user.points);
+          setEnergy(user.energy);
+          setTapPower(user.tap_power);
+          setStreakDay(user.streak || 1);
+          setClaimedToday(user.last_claim_date === todayStr);
+          setHasAutobot(user.has_autobot || false);
+          if (user.squad_id) fetchSquadDetails(user.squad_id);
         }
       } else {
         const user = data[0];
@@ -99,11 +98,44 @@ export default function App() {
         setStreakDay(user.streak || 1);
         setClaimedToday(user.last_claim_date === todayStr);
         setHasAutobot(user.has_autobot || false);
+        if (user.squad_id) fetchSquadDetails(user.squad_id);
       }
+      
+      fetchSquadsList();
     }
 
     fetchUserData();
   }, [telegramId, username]);
+
+  const fetchSquadsList = async () => {
+    let { data, error } = await supabase
+      .from('squads')
+      .select('*')
+      .order('total_score', { ascending: false });
+
+    if (!error && data) {
+      setSquadsList(data);
+    }
+  };
+
+  const fetchSquadDetails = async (squadId) => {
+    let { data: squadData, error } = await supabase
+      .from('squads')
+      .select('*')
+      .eq('id', squadId)
+      .single();
+
+    if (!error && squadData) {
+      setMySquad(squadData);
+      // Klan üyelerini çek
+      let { data: membersData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('squad_id', squadId);
+      
+      if (membersData) setSquadMembers(membersData);
+    }
+  };
 
   const syncWithSupabase = async (newPoints, newEnergy, autobotStatus = hasAutobot) => {
     await supabase
@@ -112,42 +144,31 @@ export default function App() {
       .eq('telegram_id', telegramId);
   };
 
-  // Enerjinin dolması
+  // Enerji dolumu
   useEffect(() => {
     const timer = setInterval(() => {
-      setEnergy((prev) => {
-        const nextEnergy = prev < maxEnergy ? prev + 1 : maxEnergy;
-        return nextEnergy;
-      });
+      setEnergy((prev) => (prev < maxEnergy ? prev + 1 : maxEnergy));
     }, 2000);
     return () => clearInterval(timer);
   }, [maxEnergy]);
 
-  // AUTO-BOT PASİF KAZANÇ DÖNGÜSÜ (Düzeltildi: Sadece hasAutobot değişimine bakar, enerjiye takılmaz)
+  // Auto-Bot pasif kazanç
   useEffect(() => {
     if (!hasAutobot) return;
-
     const autoBotTimer = setInterval(() => {
-      setPoints((prevPoints) => {
-        const updated = prevPoints + 5; 
-        return updated;
-      });
+      setPoints((prevPoints) => prevPoints + 5);
     }, 3000);
-
     return () => clearInterval(autoBotTimer);
   }, [hasAutobot]);
 
-  // Arka plandaki puanı her 30 saniyede bir veritabanına kaydet (Sürekli istek atmamak için)
   useEffect(() => {
     if (!hasAutobot) return;
     const saveInterval = setInterval(() => {
-      // O anki points değerini güncel tutmak için çağırıyoruz
       setPoints((currentPoints) => {
         syncWithSupabase(currentPoints, energy, true);
         return currentPoints;
       });
-    }, 30000); // Her 30 saniyede bir veritabanını günceller
-
+    }, 30000);
     return () => clearInterval(saveInterval);
   }, [hasAutobot, energy]);
 
@@ -157,15 +178,12 @@ export default function App() {
     if (energy <= 0) return;
 
     setLastClickTime(now);
-    
     const updatedPoints = points + tapPower;
     const updatedEnergy = Math.max(0, energy - 2);
 
     setPoints(updatedPoints);
     setEnergy(updatedEnergy);
-
     syncWithSupabase(updatedPoints, updatedEnergy);
-
     createClickEffect(e, `+${tapPower}`);
   };
 
@@ -185,9 +203,146 @@ export default function App() {
     setTimeout(() => elem.remove(), 800);
   };
 
+  // KLAN KURMA (300 Telegram Stars)
+  const handleCreateSquadStars = () => {
+    if (mySquad) {
+      alert("Zaten bir klandasın! Önce mevcut klandan ayrılmalısın.");
+      return;
+    }
+
+    if (!tg || !tg.openInvoice) {
+      // Simülasyon Modu
+      createSquadInDB("SimulatedSquad_" + Math.floor(Math.random()*1000));
+      return;
+    }
+
+    tg.showConfirm("Klan Kurmak için 300 Telegram Stars ödemek istiyor musun?", async (confirmed) => {
+      if (confirmed) {
+        createSquadInDB(squadNameInput.trim());
+      }
+    });
+  };
+
+  const createSquadInDB = async (customName) => {
+    const squadName = customName || squadNameInput.trim();
+    if (!squadName) {
+      alert("Lütfen bir klan adı girin!");
+      return;
+    }
+
+    // 1. Klanı oluştur
+    let { data, error } = await supabase
+      .from('squads')
+      .insert([{
+        name: squadName,
+        leader_telegram_id: telegramId,
+        members_count: 1,
+        total_score: points
+      }])
+      .select();
+
+    if (error || !data) {
+      alert("Klan kurulamadı: " + (error?.message || "Bilinmeyen hata"));
+      return;
+    }
+
+    const newSquad = data[0];
+
+    // 2. Kullanıcının squad_id'sini güncelle
+    await supabase
+      .from('users')
+      .update({ squad_id: newSquad.id })
+      .eq('telegram_id', telegramId);
+
+    setMySquad(newSquad);
+    setSquadNameInput('');
+    fetchSquadsList();
+    fetchSquadDetails(newSquad.id);
+    if (tg?.showAlert) tg.showAlert(`Tebrikler! '${squadName}' klanı başarıyla kuruldu! 🛡️`);
+  };
+
+  // KLANA KATILMA
+  const handleJoinSquad = async (squad) => {
+    if (mySquad) {
+      alert("Zaten bir klandasın!");
+      return;
+    }
+
+    if (squad.members_count >= 20) {
+      alert("Bu klan dolu (Maksimum 20 üye)!");
+      return;
+    }
+
+    // Kullanıcıyı güncelle
+    await supabase
+      .from('users')
+      .update({ squad_id: squad.id })
+      .eq('telegram_id', telegramId);
+
+    // Klan üye sayısını artır
+    await supabase
+      .from('squads')
+      .update({ members_count: squad.members_count + 1 })
+      .eq('id', squad.id);
+
+    fetchSquadsList();
+    fetchSquadDetails(squad.id);
+  };
+
+  // KLANDAN AYRILMA
+  const handleLeaveSquad = async () => {
+    if (!mySquad) return;
+
+    if (mySquad.leader_telegram_id === telegramId) {
+      alert("Klan başkanı klandan ayrılamaz! Klanı silmek yerine üye atabilir veya yönetebilirsin.");
+      return;
+    }
+
+    await supabase
+      .from('users')
+      .update({ squad_id: null })
+      .eq('telegram_id', telegramId);
+
+    await supabase
+      .from('squads')
+      .update({ members_count: Math.max(1, mySquad.members_count - 1) })
+      .eq('id', mySquad.id);
+
+    setMySquad(null);
+    setSquadMembers([]);
+    fetchSquadsList();
+  };
+
+  // BAŞKANIN ÜYE ATMA YETKİSİ (KICK)
+  const handleKickMember = async (memberTelegramId) => {
+    if (mySquad.leader_telegram_id !== telegramId) {
+      alert("Bu işlem için yetkin yok!");
+      return;
+    }
+
+    if (memberTelegramId === telegramId) {
+      alert("Kendini klandan atamazsın!");
+      return;
+    }
+
+    // Üyenin squad_id'sini null yap
+    await supabase
+      .from('users')
+      .update({ squad_id: null })
+      .eq('telegram_id', memberTelegramId);
+
+    // Klan üye sayısını düşür
+    await supabase
+      .from('squads')
+      .update({ members_count: Math.max(1, mySquad.members_count - 1) })
+      .eq('id', mySquad.id);
+
+    fetchSquadDetails(mySquad.id);
+    fetchSquadsList();
+  };
+
   const claimDailyReward = async (rewardAmount) => {
     if (claimedToday) return;
-
     const todayStr = getTodayDateString();
     const nextStreak = streakDay >= 7 ? 1 : streakDay + 1; 
     const updatedPoints = points + rewardAmount;
@@ -198,89 +353,37 @@ export default function App() {
 
     await supabase
       .from('users')
-      .update({ 
-        points: updatedPoints, 
-        last_claim_date: todayStr,
-        streak: nextStreak 
-      })
+      .update({ points: updatedPoints, last_claim_date: todayStr, streak: nextStreak })
       .eq('telegram_id', telegramId);
-  };
-
-  const handleCreateSquad = (e) => {
-    e.preventDefault();
-    if (!squadNameInput.trim()) return;
-
-    if (points < CREATION_COST) {
-      alert(`Yetersiz bakiye! Klan kurmak için ${CREATION_COST.toLocaleString()} 💎 Puan gerekiyor.`);
-      return;
-    }
-
-    const updatedPoints = points - CREATION_COST;
-    setPoints(updatedPoints);
-    
-    const newSquad = {
-      id: Date.now(),
-      name: squadNameInput,
-      leader: username,
-      membersCount: 1,
-      totalScore: updatedPoints,
-    };
-
-    setSquadsList([newSquad, ...squadsList]);
-    setMySquad(newSquad);
-    setSquadNameInput('');
-    syncWithSupabase(updatedPoints, energy);
-  };
-
-  const handleJoinSquad = (squad) => {
-    setMySquad(squad);
   };
 
   const buyMultitap = () => {
     const cost = 2000 * tapPower;
-    if (points < cost) {
-      alert("Yetersiz bakiye!");
-      return;
-    }
+    if (points < cost) { alert("Yetersiz bakiye!"); return; }
     const updatedPoints = points - cost;
     const updatedPower = tapPower + 1;
-
     setPoints(updatedPoints);
     setTapPower(updatedPower);
-
-    supabase
-      .from('users')
-      .update({ points: updatedPoints, tap_power: updatedPower })
-      .eq('telegram_id', telegramId)
-      .then(({ error }) => {
-        if (error) console.log("Multitap güncelleme hatası:", error.message);
-      });
+    supabase.from('users').update({ points: updatedPoints, tap_power: updatedPower }).eq('telegram_id', telegramId);
   };
 
   const buyEnergyTank = () => {
     const cost = 3000;
-    if (points < cost) {
-      alert("Yetersiz bakiye!");
-      return;
-    }
+    if (points < cost) { alert("Yetersiz bakiye!"); return; }
     const updatedPoints = points - cost;
     const updatedMaxEnergy = maxEnergy + 50;
-
     setPoints(updatedPoints);
     setMaxEnergy(updatedMaxEnergy);
     setEnergy(updatedMaxEnergy);
-
     syncWithSupabase(updatedPoints, updatedMaxEnergy);
   };
 
-  // TELEGRAM STARS ÖDEME VE FİYATLANDIRMA (Full Enerji: 100 Stars, Auto-Bot: 500 Stars)
   const buyTelegramStarsPackage = (packageName, starsPrice, rewardType) => {
     if (!tg || !tg.openInvoice) {
       alert(`[Simülasyon Modu] ${packageName} (${starsPrice} Stars) satın alındı!`);
       grantReward(rewardType);
       return;
     }
-
     tg.showConfirm(`${packageName} için ${starsPrice} Telegram Stars ödemek istiyor musun?`, async (confirmed) => {
       if (confirmed) {
         grantReward(rewardType);
@@ -353,14 +456,15 @@ export default function App() {
         </div>
       )}
 
+      {/* KLANLAR SEKMESİ */}
       {activeTab === 'squads' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
             <h2 className="text-lg font-black text-white mb-1">👥 Klan Sistemi</h2>
-            <p className="text-xs text-slate-400 mb-4">Klan kurmak {CREATION_COST.toLocaleString()} 💎 tutar.</p>
+            <p className="text-xs text-slate-400 mb-4">Klan kurmak <span className="text-yellow-400 font-bold">⭐ 300 Stars</span> tutar (Maks. 20 Üye).</p>
 
             {!mySquad ? (
-              <form onSubmit={handleCreateSquad} className="flex gap-2">
+              <div className="flex gap-2">
                 <input 
                   type="text"
                   placeholder="Klan Adı..."
@@ -369,47 +473,69 @@ export default function App() {
                   className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 flex-1"
                 />
                 <button 
-                  type="submit"
-                  className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
+                  onClick={handleCreateSquadStars}
+                  className="bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
                 >
-                  Klan Kur
+                  Klan Kur (⭐ 300)
                 </button>
-              </form>
+              </div>
             ) : (
-              <div className="bg-purple-950/30 border border-purple-500/40 p-3 rounded-xl flex justify-between items-center">
-                <div>
-                  <span className="text-xs text-purple-400 block">Aktif Klanın</span>
-                  <span className="font-bold text-white text-sm">{mySquad.name}</span>
+              <div className="bg-purple-950/30 border border-purple-500/40 p-4 rounded-xl flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-xs text-purple-400 block">Aktif Klanın {mySquad.leader_telegram_id === telegramId ? '(👑 Başkan)' : ''}</span>
+                    <span className="font-bold text-white text-base">{mySquad.name}</span>
+                  </div>
+                  <button 
+                    onClick={handleLeaveSquad}
+                    className="text-xs bg-red-500/20 border border-red-500/40 text-red-300 px-3 py-1.5 rounded-lg cursor-pointer"
+                  >
+                    Ayrıl
+                  </button>
                 </div>
-                <button 
-                  onClick={() => setMySquad(null)}
-                  className="text-xs bg-red-500/20 border border-red-500/40 text-red-300 px-3 py-1.5 rounded-lg"
-                >
-                  Ayrıl
-                </button>
+
+                {/* Üye Listesi ve Başkan Yetkisi */}
+                <div className="border-t border-purple-500/30 pt-2 mt-1">
+                  <span className="text-[11px] text-slate-400 block mb-2">Klan Üyeleri ({squadMembers.length}/20):</span>
+                  <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto">
+                    {squadMembers.map((member) => (
+                      <div key={member.telegram_id} className="flex justify-between items-center bg-slate-900/60 p-2 rounded-lg text-xs">
+                        <span className="text-slate-200">{member.username} {member.telegram_id === mySquad.leader_telegram_id ? '👑' : ''}</span>
+                        {mySquad.leader_telegram_id === telegramId && member.telegram_id !== telegramId && (
+                          <button 
+                            onClick={() => handleKickMember(member.telegram_id)}
+                            className="text-[10px] bg-red-600/30 text-red-300 px-2 py-0.5 rounded border border-red-500/30 cursor-pointer hover:bg-red-600/50"
+                          >
+                            At
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
-            <h3 className="text-sm font-bold text-slate-300 mb-3">En İyi Klanlar</h3>
+            <h3 className="text-sm font-bold text-slate-300 mb-3">Tüm Klanlar</h3>
             <div className="flex flex-col gap-2">
               {squadsList.map((squad, index) => (
                 <div key={squad.id} className="bg-slate-800/50 border border-slate-700/60 p-3 rounded-xl flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-cyan-400">#{index + 1} {squad.name}</span>
-                    <p className="text-[10px] text-slate-400">{squad.membersCount} Üye • {squad.totalScore.toLocaleString()} Puan</p>
+                    <p className="text-[10px] text-slate-400">{squad.members_count}/20 Üye</p>
                   </div>
-                  {mySquad?.id !== squad.id ? (
+                  {!mySquad ? (
                     <button 
                       onClick={() => handleJoinSquad(squad)}
-                      className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-lg cursor-pointer"
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer"
                     >
                       Katıl
                     </button>
-                  ) : (
+                  ) : mySquad.id === squad.id ? (
                     <span className="text-xs text-green-400 font-bold">Senin Klansın</span>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -417,6 +543,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MAĞAZA SEKMESİ */}
       {activeTab === 'store' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border border-purple-500/40 p-4 rounded-2xl shadow-xl">
