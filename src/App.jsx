@@ -26,11 +26,8 @@ export default function App() {
   const [squadsList, setSquadsList] = useState([]);
   const [squadMembers, setSquadMembers] = useState([]);
 
-  // Görevler State'leri
-  const [questsCompleted, setQuestsCompleted] = useState({
-    twitter: false,
-    telegram: false
-  });
+  // Görevler State'i (Artık Supabase'den beslenecek)
+  const [twitterCompleted, setTwitterCompleted] = useState(false);
 
   const dailyRewards = [
     { day: 1, reward: 10 },
@@ -81,7 +78,8 @@ export default function App() {
             streak: 1,
             last_claim_date: '',
             has_autobot: false,
-            squad_id: null
+            squad_id: null,
+            twitter_completed: false
           }])
           .select();
 
@@ -93,6 +91,7 @@ export default function App() {
           setStreakDay(user.streak || 1);
           setClaimedToday(user.last_claim_date === todayStr);
           setHasAutobot(user.has_autobot || false);
+          setTwitterCompleted(user.twitter_completed || false);
           if (user.squad_id) fetchSquadDetails(user.squad_id);
         }
       } else {
@@ -103,6 +102,7 @@ export default function App() {
         setStreakDay(user.streak || 1);
         setClaimedToday(user.last_claim_date === todayStr);
         setHasAutobot(user.has_autobot || false);
+        setTwitterCompleted(user.twitter_completed || false);
         if (user.squad_id) fetchSquadDetails(user.squad_id);
       }
       
@@ -205,21 +205,21 @@ export default function App() {
     setTimeout(() => elem.remove(), 800);
   };
 
-  // GÖREV TAMAMLAMA FONKSİYONU
-  const handleCompleteQuest = async (questKey, rewardAmount) => {
-    if (questsCompleted[questKey]) return;
+  // GÖREVİ TAMAMLAMA VE SUPABASE'E KAYDETME
+  const handleCompleteTwitterQuest = async () => {
+    if (twitterCompleted) return;
 
-    if (questKey === 'twitter') {
-      window.open('https://x.com/coretapofficial', '_blank');
-    }
+    window.open('https://x.com/coretapofficial', '_blank');
 
+    const rewardAmount = 500;
     const updatedPoints = points + rewardAmount;
+    
     setPoints(updatedPoints);
-    setQuestsCompleted(prev => ({ ...prev, [questKey]: true }));
+    setTwitterCompleted(true);
 
     await supabase
       .from('users')
-      .update({ points: updatedPoints })
+      .update({ points: updatedPoints, twitter_completed: true })
       .eq('telegram_id', telegramId);
 
     if (tg?.showAlert) {
@@ -227,7 +227,6 @@ export default function App() {
     }
   };
 
-  // GERÇEK TELEGRAM STARS İLE KLAN KURMA
   const handleCreateSquadStars = async () => {
     if (mySquad) {
       alert("Zaten bir klandasın! Önce mevcut klandan ayrılmalısın.");
@@ -606,15 +605,15 @@ export default function App() {
                   <span className="text-[10px] text-yellow-400 font-semibold">+500 💎</span>
                 </div>
                 <button 
-                  onClick={() => handleCompleteQuest('twitter', 500)}
-                  disabled={questsCompleted.twitter}
+                  onClick={handleCompleteTwitterQuest}
+                  disabled={twitterCompleted}
                   className={`text-xs font-bold px-4 py-2 rounded-xl cursor-pointer ${
-                    questsCompleted.twitter 
+                    twitterCompleted 
                       ? 'bg-green-600/30 border border-green-500/40 text-green-300 cursor-not-allowed' 
                       : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
                   }`}
                 >
-                  {questsCompleted.twitter ? 'Tamamlandı ✅' : 'Takip Et & Kazan'}
+                  {twitterCompleted ? 'Tamamlandı ✅' : 'Takip Et & Kazan'}
                 </button>
               </div>
             </div>
