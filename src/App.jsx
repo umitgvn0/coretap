@@ -181,7 +181,7 @@ export default function App() {
 
     setLastClickTime(now);
     const updatedPoints = points + tapPower;
-    const updatedEnergy = Math.max(0, energy - 2);
+    const updatedEnergy = Math.max(0, energy - 1);
 
     setPoints(updatedPoints);
     setEnergy(updatedEnergy);
