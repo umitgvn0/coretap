@@ -26,6 +26,12 @@ export default function App() {
   const [squadsList, setSquadsList] = useState([]);
   const [squadMembers, setSquadMembers] = useState([]);
 
+  // Görevler State'leri
+  const [questsCompleted, setQuestsCompleted] = useState({
+    twitter: false,
+    telegram: false
+  });
+
   const dailyRewards = [
     { day: 1, reward: 10 },
     { day: 2, reward: 15 },
@@ -199,6 +205,28 @@ export default function App() {
     setTimeout(() => elem.remove(), 800);
   };
 
+  // GÖREV TAMAMLAMA FONKSİYONU
+  const handleCompleteQuest = async (questKey, rewardAmount) => {
+    if (questsCompleted[questKey]) return;
+
+    if (questKey === 'twitter') {
+      window.open('https://x.com/coretapofficial', '_blank');
+    }
+
+    const updatedPoints = points + rewardAmount;
+    setPoints(updatedPoints);
+    setQuestsCompleted(prev => ({ ...prev, [questKey]: true }));
+
+    await supabase
+      .from('users')
+      .update({ points: updatedPoints })
+      .eq('telegram_id', telegramId);
+
+    if (tg?.showAlert) {
+      tg.showAlert(`Tebrikler! +${rewardAmount} 💎 kazandın!`);
+    }
+  };
+
   // GERÇEK TELEGRAM STARS İLE KLAN KURMA
   const handleCreateSquadStars = async () => {
     if (mySquad) {
@@ -218,7 +246,6 @@ export default function App() {
     }
 
     try {
-      // 1. Vercel API'den Fatura Linki Al
       const res = await fetch('/api/create-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -236,10 +263,8 @@ export default function App() {
         return;
       }
 
-      // 2. Telegram Fatura Ekranını Aç
       tg.openInvoice(data.invoiceLink, async (status) => {
         if (status === 'paid') {
-          // Ödeme Başarılıysa Klanı Kur
           await createSquadInDB(squadName);
         } else {
           alert("Ödeme iptal edildi veya başarısız oldu.");
@@ -382,7 +407,6 @@ export default function App() {
     syncWithSupabase(updatedPoints, updatedMaxEnergy);
   };
 
-  // GERÇEK STARS İLE MAĞAZA ÜRÜNLERİ SATIN ALMA
   const buyTelegramStarsPackage = async (packageName, starsPrice, rewardType) => {
     if (!tg || !tg.openInvoice) {
       alert("Bu özellik yalnızca Telegram içinde çalışır!");
@@ -482,6 +506,7 @@ export default function App() {
         </div>
       )}
 
+      {/* KLANLAR SEKMESİ */}
       {activeTab === 'squads' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
@@ -567,6 +592,37 @@ export default function App() {
         </div>
       )}
 
+      {/* GÖREVLER SEKMESİ */}
+      {activeTab === 'quests' && (
+        <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
+            <h2 className="text-lg font-black text-white mb-1">🎯 Sosyal Görevler</h2>
+            <p className="text-xs text-slate-400 mb-4">X (Twitter)'da bizi takip et, anında ekstra koinleri kap!</p>
+
+            <div className="flex flex-col gap-3">
+              <div className="bg-slate-800/50 border border-slate-700/60 p-3.5 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-white block">X'te Takip Et (@coretapofficial)</span>
+                  <span className="text-[10px] text-yellow-400 font-semibold">+500 💎</span>
+                </div>
+                <button 
+                  onClick={() => handleCompleteQuest('twitter', 500)}
+                  disabled={questsCompleted.twitter}
+                  className={`text-xs font-bold px-4 py-2 rounded-xl cursor-pointer ${
+                    questsCompleted.twitter 
+                      ? 'bg-green-600/30 border border-green-500/40 text-green-300 cursor-not-allowed' 
+                      : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'
+                  }`}
+                >
+                  {questsCompleted.twitter ? 'Tamamlandı ✅' : 'Takip Et & Kazan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MAĞAZA SEKMESİ */}
       {activeTab === 'store' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border border-purple-500/40 p-4 rounded-2xl shadow-xl">
@@ -636,10 +692,11 @@ export default function App() {
         </div>
       </div>
 
+      {/* Navigasyon */}
       <div className="w-full max-w-md grid grid-cols-4 gap-2 bg-slate-900/90 border border-slate-800 p-2 rounded-2xl z-10 text-center text-xs font-medium text-slate-400">
         <button onClick={() => setActiveTab('game')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'game' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Oyun</button>
         <button onClick={() => setActiveTab('squads')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'squads' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Klanlar</button>
-        <button className="py-2 hover:bg-slate-800 hover:text-white rounded-xl">Görevler</button>
+        <button onClick={() => setActiveTab('quests')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'quests' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Görevler</button>
         <button onClick={() => setActiveTab('store')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'store' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Mağaza</button>
       </div>
 
