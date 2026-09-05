@@ -460,7 +460,7 @@ export default function App() {
 
       <div className="w-full max-w-md flex justify-between items-center bg-slate-900/85 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10">
         <div>
-          <span className="text-xs text-slate-400 uppercase tracking-widest">CoreTap ({username})</span>
+          <span className="text-xs text-slate-400 uppercase tracking-widest">CoreTap</span>
           <h1 className="text-3xl font-black text-yellow-400 tracking-wider">💎 {points.toLocaleString()}</h1>
         </div>
         <div className="flex items-center gap-2">
