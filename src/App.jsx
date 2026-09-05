@@ -26,7 +26,7 @@ export default function App() {
   const [squadsList, setSquadsList] = useState([]);
   const [squadMembers, setSquadMembers] = useState([]);
 
-  // Görevler State'i (Artık Supabase'den beslenecek)
+  // Görevler State'i
   const [twitterCompleted, setTwitterCompleted] = useState(false);
 
   const dailyRewards = [
@@ -205,7 +205,6 @@ export default function App() {
     setTimeout(() => elem.remove(), 800);
   };
 
-  // GÖREVİ TAMAMLAMA VE SUPABASE'E KAYDETME
   const handleCompleteTwitterQuest = async () => {
     if (twitterCompleted) return;
 
@@ -497,8 +496,8 @@ export default function App() {
             onClick={handleTap}
             className="relative w-56 h-56 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-600 to-purple-600 p-2 shadow-[0_0_50px_rgba(79,70,229,0.4)] active:scale-95 transition-transform duration-75 cursor-pointer flex items-center justify-center group"
           >
-            <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center border-4 border-slate-800 group-hover:border-cyan-400 transition-colors">
-              <span className="text-6xl">🪙</span>
+            <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center border-4 border-slate-800 group-hover:border-cyan-400 transition-colors overflow-hidden">
+              <img src="/logo.png" alt="CoreTap Logo" className="w-28 h-28 object-contain pointer-events-none" />
             </div>
           </div>
           <p className="text-xs text-slate-500 mt-4 tracking-wider">Tık Başına Güç: <span className="text-yellow-400">+{tapPower}</span></p>
