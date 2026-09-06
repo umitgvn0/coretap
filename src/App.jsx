@@ -25,6 +25,7 @@ export default function App() {
 
   // Klan State'leri
   const [squadNameInput, setSquadNameInput] = useState('');
+  const [squadSearchQuery, setSquadSearchQuery] = useState(''); // Klan arama state'i
   const [mySquad, setMySquad] = useState(null);
   const [squadsList, setSquadsList] = useState([]);
   const [squadMembers, setSquadMembers] = useState([]);
@@ -107,7 +108,6 @@ export default function App() {
         setHasAutobot(user.has_autobot || false);
         setTwitterCompleted(user.twitter_completed || false);
         
-        // Eğer veritabanındaki kullanıcı adı eskiden kalma "Ümit" ise ve yeni hesap farklıysa güncelleyelim
         if (user.username !== username) {
           await supabase
             .from('users')
@@ -464,6 +464,11 @@ export default function App() {
     }
   };
 
+  // Filtrelenmiş Klan Listesi (Arama Özelliği)
+  const filteredSquads = squadsList.filter((squad) =>
+    squad.name.toLowerCase().includes(squadSearchQuery.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col items-center justify-between min-h-screen bg-slate-950 text-white font-sans p-4 select-none overflow-hidden relative pb-20">
       <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -525,7 +530,7 @@ export default function App() {
         </div>
       )}
 
-      {/* KLANLAR SEKMESİ */}
+      {/* KLANLAR SEKMESİ (Arama Çubuğu Eklendi) */}
       {activeTab === 'squads' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
@@ -587,25 +592,39 @@ export default function App() {
 
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
             <h3 className="text-sm font-bold text-slate-300 mb-3">Tüm Klanlar</h3>
-            <div className="flex flex-col gap-2">
-              {squadsList.map((squad, index) => (
-                <div key={squad.id} className="bg-slate-800/50 border border-slate-700/60 p-3 rounded-xl flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-cyan-400">#{index + 1} {squad.name}</span>
-                    <p className="text-[10px] text-slate-400">{squad.members_count}/20 Üye</p>
+            
+            {/* Klan Arama Çubuğu */}
+            <input 
+              type="text"
+              placeholder="🔍 Klan Ara..."
+              value={squadSearchQuery}
+              onChange={(e) => setSquadSearchQuery(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 mb-3"
+            />
+
+            <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+              {filteredSquads.length > 0 ? (
+                filteredSquads.map((squad) => (
+                  <div key={squad.id} className="bg-slate-800/50 border border-slate-700/60 p-3 rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-cyan-400">{squad.name}</span>
+                      <p className="text-[10px] text-slate-400">{squad.members_count}/20 Üye</p>
+                    </div>
+                    {!mySquad ? (
+                      <button 
+                        onClick={() => handleJoinSquad(squad)}
+                        className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        Katıl
+                      </button>
+                    ) : mySquad.id === squad.id ? (
+                      <span className="text-xs text-green-400 font-bold">Senin Klansın</span>
+                    ) : null}
                   </div>
-                  {!mySquad ? (
-                    <button 
-                      onClick={() => handleJoinSquad(squad)}
-                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer"
-                    >
-                      Katıl
-                    </button>
-                  ) : mySquad.id === squad.id ? (
-                    <span className="text-xs text-green-400 font-bold">Senin Klansın</span>
-                  ) : null}
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-xs text-slate-500 text-center py-2">Klan bulunamadı.</p>
+              )}
             </div>
           </div>
         </div>
