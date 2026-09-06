@@ -6,7 +6,7 @@ export default function App() {
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   
   // Telegram'dan gelen gerçek isim ve kullanıcı adını alıyoruz
-  const firstName = tg?.initDataUnsafe?.user?.first_name || 'Ümit';
+  const firstName = tg?.initDataUnsafe?.user?.first_name || (telegramId === 6892178102 ? 'Ümit' : 'Muhammet');
   const username = tg?.initDataUnsafe?.user?.username || firstName;
 
   const [points, setPoints] = useState(0);
@@ -106,6 +106,15 @@ export default function App() {
         setClaimedToday(user.last_claim_date === todayStr);
         setHasAutobot(user.has_autobot || false);
         setTwitterCompleted(user.twitter_completed || false);
+        
+        // Eğer veritabanındaki kullanıcı adı eskiden kalma "Ümit" ise ve yeni hesap farklıysa güncelleyelim
+        if (user.username !== username) {
+          await supabase
+            .from('users')
+            .update({ username: username })
+            .eq('telegram_id', telegramId);
+        }
+
         if (user.squad_id) fetchSquadDetails(user.squad_id);
       }
       
@@ -689,7 +698,7 @@ export default function App() {
         </div>
       )}
 
-      {/* PROFİL SEKMESİ (MemeFi Tarzı - Gerçek Hesap Bilgileri) */}
+      {/* PROFİL SEKMESİ */}
       {activeTab === 'profile' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col items-center gap-4 py-6">
           <div className="w-24 h-24 rounded-full bg-amber-700/80 border-4 border-amber-500/50 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-amber-900/40">
