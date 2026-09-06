@@ -3,8 +3,8 @@ import { supabase } from './supabaseClient';
 
 export default function App() {
   const tg = window.Telegram?.WebApp;
-  const telegramId = tg?.initDataUnsafe?.user?.id || Math.floor(Math.random() * 1000000); 
-  const username = tg?.initDataUnsafe?.user?.username || `User_${Math.floor(Math.random() * 1000)}`;
+  const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
+  const username = tg?.initDataUnsafe?.user?.username || 'Umit';
 
   const [points, setPoints] = useState(0);
   const [energy, setEnergy] = useState(100);
@@ -721,7 +721,7 @@ export default function App() {
             <div className="grid grid-cols-4 gap-2 mb-6">
               {dailyRewards.map((item) => (
                 <div key={item.day} className={`p-3 rounded-2xl flex flex-col items-center justify-center border ${item.day === streakDay ? 'bg-purple-600/20 border-purple-500' : 'bg-slate-800 border-slate-700'}`}>
-                  <span className="text-xs text-slate-405">Gün {item.day}</span>
+                  <span className="text-xs text-slate-400">Gün {item.day}</span>
                   <span className="text-base font-black text-yellow-400">+{item.reward}</span>
                 </div>
               ))}
