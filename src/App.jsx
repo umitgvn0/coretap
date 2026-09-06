@@ -4,8 +4,11 @@ import { supabase } from './supabaseClient';
 export default function App() {
   const tg = window.Telegram?.WebApp;
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
-  const username = tg?.initDataUnsafe?.user?.username || 'Umit';
+  
+  // Rastgele unique kullanıcı adı ve isim fallback mekanizması
+  const rawUsername = tg?.initDataUnsafe?.user?.username;
   const firstName = tg?.initDataUnsafe?.user?.first_name || 'Ümit';
+  const username = rawUsername || `Oyuncu_${Math.floor(Math.random() * 900) + 100}`;
 
   const [points, setPoints] = useState(0);
   const [energy, setEnergy] = useState(100);
@@ -240,7 +243,7 @@ export default function App() {
     }
 
     if (!tg || !tg.openInvoice) {
-      alert("Bu özellik yalnızca Telegram içinde çalışır!");
+      alert("Test ortamında veya Telegram dışında ödeme yapılamaz!");
       return;
     }
 
@@ -687,7 +690,7 @@ export default function App() {
         </div>
       )}
 
-      {/* PROFİL SEKMESİ (MemeFi Tarzı) */}
+      {/* PROFİL SEKMESİ (MemeFi Tarzı - Gerçek Kullanıcı Adı) */}
       {activeTab === 'profile' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col items-center gap-4 py-6">
           <div className="w-24 h-24 rounded-full bg-amber-700/80 border-4 border-amber-500/50 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-amber-900/40">
@@ -730,7 +733,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigasyon Çubuğu (5 Sekmeli MemeFi Stili) */}
+      {/* Navigasyon Çubuğu */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-md grid grid-cols-5 gap-1 bg-slate-900/95 backdrop-blur-md border border-slate-800 p-2 rounded-2xl z-50 text-center text-[10px] font-medium text-slate-400 shadow-2xl">
         <button onClick={() => setActiveTab('store')} className={`flex flex-col items-center justify-center py-1.5 rounded-xl cursor-pointer ${activeTab === 'store' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>
           <span className="text-sm">🛍️</span>
