@@ -4,7 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
 
-const manifestUrl = 'https://raw.githubusercontent.com/ton-connect/sdk/master/packages/wallets-list/src/manifest.json';
+const manifestUrl = 'https://coretap.vercel.app/tonconnect-manifest.json';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
