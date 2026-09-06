@@ -5,10 +5,9 @@ export default function App() {
   const tg = window.Telegram?.WebApp;
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   
-  // Rastgele unique kullanıcı adı ve isim fallback mekanizması
-  const rawUsername = tg?.initDataUnsafe?.user?.username;
+  // Telegram'dan gelen gerçek isim ve kullanıcı adını alıyoruz
   const firstName = tg?.initDataUnsafe?.user?.first_name || 'Ümit';
-  const username = rawUsername || `Oyuncu_${Math.floor(Math.random() * 900) + 100}`;
+  const username = tg?.initDataUnsafe?.user?.username || firstName;
 
   const [points, setPoints] = useState(0);
   const [energy, setEnergy] = useState(100);
@@ -690,7 +689,7 @@ export default function App() {
         </div>
       )}
 
-      {/* PROFİL SEKMESİ (MemeFi Tarzı - Gerçek Kullanıcı Adı) */}
+      {/* PROFİL SEKMESİ (MemeFi Tarzı - Gerçek Hesap Bilgileri) */}
       {activeTab === 'profile' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col items-center gap-4 py-6">
           <div className="w-24 h-24 rounded-full bg-amber-700/80 border-4 border-amber-500/50 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-amber-900/40">
