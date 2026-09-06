@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 
 export default function App() {
   const tg = window.Telegram?.WebApp;
@@ -8,6 +9,10 @@ export default function App() {
   // Telegram'dan gelen gerçek isim ve kullanıcı adını alıyoruz
   const firstName = tg?.initDataUnsafe?.user?.first_name || (telegramId === 6892178102 ? 'Ümit' : 'Muhammet');
   const username = tg?.initDataUnsafe?.user?.username || firstName;
+
+  // TON Connect Hook'ları
+  const [tonConnectUI] = useTonConnectUI();
+  const wallet = useTonWallet();
 
   const [points, setPoints] = useState(0);
   const [energy, setEnergy] = useState(100);
@@ -25,7 +30,7 @@ export default function App() {
 
   // Klan State'leri
   const [squadNameInput, setSquadNameInput] = useState('');
-  const [squadSearchQuery, setSquadSearchQuery] = useState(''); // Klan arama state'i
+  const [squadSearchQuery, setSquadSearchQuery] = useState('');
   const [mySquad, setMySquad] = useState(null);
   const [squadsList, setSquadsList] = useState([]);
   const [squadMembers, setSquadMembers] = useState([]);
@@ -464,7 +469,6 @@ export default function App() {
     }
   };
 
-  // Filtrelenmiş Klan Listesi (Arama Özelliği)
   const filteredSquads = squadsList.filter((squad) =>
     squad.name.toLowerCase().includes(squadSearchQuery.toLowerCase())
   );
@@ -474,9 +478,15 @@ export default function App() {
       <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* ID Gösterge Alanı */}
-      <div className="w-full max-w-md bg-slate-900/60 border border-slate-800 px-4 py-1.5 rounded-xl text-xs text-slate-300 flex justify-center items-center z-10 mb-2">
-        <span className="text-slate-400">Telegram ID: <strong className="text-cyan-400">{telegramId}</strong></span>
+      {/* Üst Bar / ID ve Cüzdan Bağlantısı */}
+      <div className="w-full max-w-md bg-slate-900/60 border border-slate-800 px-4 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center z-10 mb-2">
+        <span className="text-slate-400">ID: <strong className="text-cyan-400">{telegramId}</strong></span>
+        <button 
+          onClick={() => tonConnectUI.openModal()}
+          className="bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 px-3 py-1 rounded-lg font-bold cursor-pointer hover:bg-cyan-500/30 transition-colors"
+        >
+          {wallet ? `🔗 ${wallet.account.address.slice(0, 4)}...${wallet.account.address.slice(-4)}` : '💎 Connect TON'}
+        </button>
       </div>
 
       {/* Üst Bar (Oyun Ekranı İçin) */}
@@ -530,7 +540,7 @@ export default function App() {
         </div>
       )}
 
-      {/* KLANLAR SEKMESİ (Arama Çubuğu Eklendi) */}
+      {/* KLANLAR SEKMESİ */}
       {activeTab === 'squads' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
@@ -592,8 +602,6 @@ export default function App() {
 
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
             <h3 className="text-sm font-bold text-slate-300 mb-3">Tüm Klanlar</h3>
-            
-            {/* Klan Arama Çubuğu */}
             <input 
               type="text"
               placeholder="🔍 Klan Ara..."
@@ -601,7 +609,6 @@ export default function App() {
               onChange={(e) => setSquadSearchQuery(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 mb-3"
             />
-
             <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
               {filteredSquads.length > 0 ? (
                 filteredSquads.map((squad) => (
@@ -717,7 +724,7 @@ export default function App() {
         </div>
       )}
 
-      {/* PROFİL SEKMESİ */}
+      {/* PROFİL SEKMESİ (Cüzdan Bilgisi Eklendi) */}
       {activeTab === 'profile' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col items-center gap-4 py-6">
           <div className="w-24 h-24 rounded-full bg-amber-700/80 border-4 border-amber-500/50 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-amber-900/40">
@@ -740,6 +747,15 @@ export default function App() {
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-400">Kullanıcı Adı:</span>
               <span className="font-bold text-cyan-400">@{username}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm border-t border-slate-800 pt-3">
+              <span className="text-slate-400">TON Cüzdanı:</span>
+              <button 
+                onClick={() => tonConnectUI.openModal()}
+                className="text-xs font-bold text-cyan-400 bg-cyan-950/40 border border-cyan-500/30 px-3 py-1.5 rounded-xl cursor-pointer"
+              >
+                {wallet ? `${wallet.account.address.slice(0, 6)}...${wallet.account.address.slice(-4)}` : 'Cüzdanı Bağla'}
+              </button>
             </div>
           </div>
         </div>
