@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 
 export default function App() {
   const tg = window.Telegram?.WebApp;
-  const telegramId = tg?.initDataUnsafe?.user?.id || Math.floor(Math.random() * 1000000); 
+  const telegramId = tg?.initDataUnsafe?.user?.id || Math.floor(Math.random() * 900000) + 100000; 
   const username = tg?.initDataUnsafe?.user?.username || `Oyuncu_${Math.floor(Math.random() * 1000)}`;
 
   const [points, setPoints] = useState(0);
