@@ -5,6 +5,7 @@ export default function App() {
   const tg = window.Telegram?.WebApp;
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   const username = tg?.initDataUnsafe?.user?.username || 'Umit';
+  const firstName = tg?.initDataUnsafe?.user?.first_name || 'Ümit';
 
   const [points, setPoints] = useState(0);
   const [energy, setEnergy] = useState(100);
@@ -407,7 +408,7 @@ export default function App() {
 
   const buyTelegramStarsPackage = async (packageName, starsPrice, rewardType) => {
     if (!tg || !tg.openInvoice) {
-      alert("Bu özellik yalnızca Telegram içinde çalışır!");
+      alert("Test ortamında veya Telegram dışında ödeme yapılamaz!");
       return;
     }
 
@@ -453,34 +454,38 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-between min-h-screen bg-slate-950 text-white font-sans p-4 select-none overflow-hidden relative">
+    <div className="flex flex-col items-center justify-between min-h-screen bg-slate-950 text-white font-sans p-4 select-none overflow-hidden relative pb-20">
       <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Sadece ID Gösterge Alanı */}
-      <div className="w-full max-w-md bg-slate-900/60 border border-slate-800 px-4 py-2 rounded-xl text-xs text-slate-300 flex justify-center items-center z-10 mb-2">
+      {/* ID Gösterge Alanı */}
+      <div className="w-full max-w-md bg-slate-900/60 border border-slate-800 px-4 py-1.5 rounded-xl text-xs text-slate-300 flex justify-center items-center z-10 mb-2">
         <span className="text-slate-400">Telegram ID: <strong className="text-cyan-400">{telegramId}</strong></span>
       </div>
 
-      <div className="w-full max-w-md flex justify-between items-center bg-slate-900/85 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10">
-        <div>
-          <span className="text-xs text-slate-400 uppercase tracking-widest">CoreTap</span>
-          <h1 className="text-3xl font-black text-yellow-400 tracking-wider">💎 {points.toLocaleString()}</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setShowDailyModal(true)}
-            className="bg-purple-600/30 border border-purple-500/50 text-purple-300 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-purple-600/50 transition-colors cursor-pointer"
-          >
-            🎁 Günlük {claimedToday ? '✅' : ''}
-          </button>
-          <div className="text-right">
-            <span className="text-xs text-slate-400 uppercase tracking-widest">Lig</span>
-            <p className={`text-sm font-bold ${currentLeague.color}`}>{currentLeague.name}</p>
+      {/* Üst Bar (Oyun Ekranı İçin) */}
+      {activeTab !== 'profile' && (
+        <div className="w-full max-w-md flex justify-between items-center bg-slate-900/85 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10">
+          <div>
+            <span className="text-xs text-slate-400 uppercase tracking-widest">CoreTap</span>
+            <h1 className="text-3xl font-black text-yellow-400 tracking-wider">💎 {points.toLocaleString()}</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowDailyModal(true)}
+              className="bg-purple-600/30 border border-purple-500/50 text-purple-300 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-purple-600/50 transition-colors cursor-pointer"
+            >
+              🎁 Günlük {claimedToday ? '✅' : ''}
+            </button>
+            <div className="text-right">
+              <span className="text-xs text-slate-400 uppercase tracking-widest">Lig</span>
+              <p className={`text-sm font-bold ${currentLeague.color}`}>{currentLeague.name}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
+      {/* OYUN SEKMESİ */}
       {activeTab === 'game' && (
         <div className="flex flex-col items-center justify-center my-auto z-10 relative w-full">
           {mySquad && (
@@ -682,25 +687,71 @@ export default function App() {
         </div>
       )}
 
-      <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10 mb-4">
-        <div className="flex justify-between text-xs font-semibold mb-2 text-slate-300">
-          <span>⚡ ENERJİ</span>
-          <span>{energy} / {maxEnergy}</span>
-        </div>
-        <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
-          <div 
-            className="h-full bg-gradient-to-r from-cyan-500 to-yellow-400 rounded-full transition-all duration-300"
-            style={{ width: `${(energy / maxEnergy) * 100}%` }}
-          ></div>
-        </div>
-      </div>
+      {/* PROFİL SEKMESİ (MemeFi Tarzı) */}
+      {activeTab === 'profile' && (
+        <div className="w-full max-w-md my-auto z-10 flex flex-col items-center gap-4 py-6">
+          <div className="w-24 h-24 rounded-full bg-amber-700/80 border-4 border-amber-500/50 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-amber-900/40">
+            {firstName.charAt(0).toUpperCase()}
+          </div>
+          
+          <h2 className="text-2xl font-black tracking-widest text-white uppercase drop-shadow-md">
+            {firstName}
+          </h2>
 
-      {/* Navigasyon */}
-      <div className="w-full max-w-md grid grid-cols-4 gap-2 bg-slate-900/90 border border-slate-800 p-2 rounded-2xl z-10 text-center text-xs font-medium text-slate-400">
-        <button onClick={() => setActiveTab('game')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'game' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Oyun</button>
-        <button onClick={() => setActiveTab('squads')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'squads' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Klanlar</button>
-        <button onClick={() => setActiveTab('quests')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'quests' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Görevler</button>
-        <button onClick={() => setActiveTab('store')} className={`py-2 rounded-xl cursor-pointer ${activeTab === 'store' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>Mağaza</button>
+          <div className="w-full bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl flex flex-col gap-3 mt-2">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">Toplam Bakiye:</span>
+              <span className="font-bold text-yellow-400">💎 {points.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">Mevcut Lig:</span>
+              <span className={`font-bold ${currentLeague.color}`}>{currentLeague.name}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">Kullanıcı Adı:</span>
+              <span className="font-bold text-cyan-400">@{username}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'game' && (
+        <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10 mb-4">
+          <div className="flex justify-between text-xs font-semibold mb-2 text-slate-300">
+            <span>⚡ ENERJİ</span>
+            <span>{energy} / {maxEnergy}</span>
+          </div>
+          <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+            <div 
+              className="h-full bg-gradient-to-r from-cyan-500 to-yellow-400 rounded-full transition-all duration-300"
+              style={{ width: `${(energy / maxEnergy) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigasyon Çubuğu (5 Sekmeli MemeFi Stili) */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-md grid grid-cols-5 gap-1 bg-slate-900/95 backdrop-blur-md border border-slate-800 p-2 rounded-2xl z-50 text-center text-[10px] font-medium text-slate-400 shadow-2xl">
+        <button onClick={() => setActiveTab('store')} className={`flex flex-col items-center justify-center py-1.5 rounded-xl cursor-pointer ${activeTab === 'store' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <span className="text-sm">🛍️</span>
+          <span>Store</span>
+        </button>
+        <button onClick={() => setActiveTab('squads')} className={`flex flex-col items-center justify-center py-1.5 rounded-xl cursor-pointer ${activeTab === 'squads' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <span className="text-sm">🛡️</span>
+          <span>Squads</span>
+        </button>
+        <button onClick={() => setActiveTab('game')} className={`flex flex-col items-center justify-center py-1.5 rounded-xl cursor-pointer ${activeTab === 'game' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <span className="text-sm">⚡</span>
+          <span>Game</span>
+        </button>
+        <button onClick={() => setActiveTab('quests')} className={`flex flex-col items-center justify-center py-1.5 rounded-xl cursor-pointer ${activeTab === 'quests' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <span className="text-sm">🎯</span>
+          <span>Quests</span>
+        </button>
+        <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center justify-center py-1.5 rounded-xl cursor-pointer ${activeTab === 'profile' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>
+          <span className="text-sm">👤</span>
+          <span>Profile</span>
+        </button>
       </div>
 
       {showDailyModal && (
