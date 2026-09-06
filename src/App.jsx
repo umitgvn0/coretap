@@ -457,6 +457,12 @@ export default function App() {
       <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
+      {/* Kullanıcı Bilgisi (ID ve İsim) Üst Bant */}
+      <div className="w-full max-w-md bg-slate-900/60 border border-slate-800 px-4 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center z-10 mb-2">
+        <span>👤 Oyuncu: <strong className="text-cyan-400">{username}</strong></span>
+        <span className="text-slate-400">ID: <strong className="text-slate-200">{telegramId}</strong></span>
+      </div>
+
       <div className="w-full max-w-md flex justify-between items-center bg-slate-900/85 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10">
         <div>
           <span className="text-xs text-slate-400 uppercase tracking-widest">CoreTap</span>
@@ -736,7 +742,7 @@ export default function App() {
               }`}
             >
               {claimedToday ? 'Bugün Alındı ✅' : 'Ödülü Al 🚀'}
-            </button>
+         </button>
           </div>
         </div>
       )}
