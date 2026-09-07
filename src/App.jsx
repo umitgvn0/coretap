@@ -6,12 +6,12 @@ export default function App() {
   const tg = window.Telegram?.WebApp;
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   
-  // Telegram'dan gelen gerçek isim ve kullanıcı adını alıyoruz
+  // Telegram'dan gelen gerçek isim, kullanıcı adı ve bot adını alıyoruz
   const firstName = tg?.initDataUnsafe?.user?.first_name || (telegramId === 6892178102 ? 'Ümit' : 'Muhammet');
   const username = tg?.initDataUnsafe?.user?.username || firstName;
+  const botUsername = tg?.initDataUnsafe?.bot?.username || "coretap_bot";
 
   // Telegram Start Parametresinden (Referans ID) yakalama
-  // Örn: t.me/BotAdi/app?start=ref_6892178102
   const startParam = tg?.initDataUnsafe?.start_param || '';
 
   // TON Connect Hook'ları
@@ -81,7 +81,6 @@ export default function App() {
       const todayStr = getTodayDateString();
 
       if (error || !data || data.length === 0) {
-        // Yeni kullanıcı kaydediliyor
         let referredByVal = null;
         if (startParam && startParam.startsWith('ref_')) {
           referredByVal = startParam.replace('ref_', '');
@@ -92,7 +91,7 @@ export default function App() {
           .insert([{ 
             telegram_id: telegramId, 
             username: username, 
-            points: referredByVal ? 1000 : 0, // Referansla gelene +1000 bonus
+            points: referredByVal ? 1000 : 0, 
             energy: 100, 
             tap_power: 1,
             streak: 1,
@@ -105,7 +104,6 @@ export default function App() {
           }])
           .select();
 
-        // Eğer bir referans ile geldiyse, davet edene de +1000 puan ver ve sayısını artır
         if (referredByVal) {
           await addReferralBonus(referredByVal);
         }
@@ -147,9 +145,8 @@ export default function App() {
     }
 
     fetchUserData();
-  }, [telegramId, username]);
+  }, [telegramId, username, activeTab]);
 
-  // Davet edene ödül verme fonksiyonu
   const addReferralBonus = async (referrerId) => {
     let { data: refUser } = await supabase
       .from('users')
@@ -261,10 +258,7 @@ export default function App() {
     setTimeout(() => elem.remove(), 800);
   };
 
-  // Davet linkini kopyalama fonksiyonu
   const copyInviteLink = () => {
-    // Botunun Telegram kullanıcı adı (Örn: CoreTap_Bot)
-    const botUsername = "CoreTap_Bot"; 
     const inviteLink = `https://t.me/${botUsername}/app?start=ref_${telegramId}`;
     
     navigator.clipboard.writeText(inviteLink);
