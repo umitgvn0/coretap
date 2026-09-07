@@ -10,6 +10,10 @@ export default function App() {
   const firstName = tg?.initDataUnsafe?.user?.first_name || (telegramId === 6892178102 ? 'Ümit' : 'Muhammet');
   const username = tg?.initDataUnsafe?.user?.username || firstName;
 
+  // Telegram Start Parametresinden (Referans ID) yakalama
+  // Örn: t.me/BotAdi/app?start=ref_6892178102
+  const startParam = tg?.initDataUnsafe?.start_param || '';
+
   // TON Connect Hook'ları
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
@@ -19,6 +23,7 @@ export default function App() {
   const [maxEnergy, setMaxEnergy] = useState(100);
   const [tapPower, setTapPower] = useState(1);
   const [hasAutobot, setHasAutobot] = useState(false);
+  const [invitedCount, setInvitedCount] = useState(0);
   
   const [lastClickTime, setLastClickTime] = useState(0);
   const CLICK_COOLDOWN = 150; 
@@ -76,21 +81,34 @@ export default function App() {
       const todayStr = getTodayDateString();
 
       if (error || !data || data.length === 0) {
+        // Yeni kullanıcı kaydediliyor
+        let referredByVal = null;
+        if (startParam && startParam.startsWith('ref_')) {
+          referredByVal = startParam.replace('ref_', '');
+        }
+
         let { data: newData, error: insertError } = await supabase
           .from('users')
           .insert([{ 
             telegram_id: telegramId, 
             username: username, 
-            points: 0, 
+            points: referredByVal ? 1000 : 0, // Referansla gelene +1000 bonus
             energy: 100, 
             tap_power: 1,
             streak: 1,
             last_claim_date: '',
             has_autobot: false,
             squad_id: null,
-            twitter_completed: false
+            twitter_completed: false,
+            referred_by: referredByVal,
+            invited_count: 0
           }])
           .select();
+
+        // Eğer bir referans ile geldiyse, davet edene de +1000 puan ver ve sayısını artır
+        if (referredByVal) {
+          await addReferralBonus(referredByVal);
+        }
 
         if (!insertError && newData && newData.length > 0) {
           const user = newData[0];
@@ -101,6 +119,7 @@ export default function App() {
           setClaimedToday(user.last_claim_date === todayStr);
           setHasAutobot(user.has_autobot || false);
           setTwitterCompleted(user.twitter_completed || false);
+          setInvitedCount(user.invited_count || 0);
           if (user.squad_id) fetchSquadDetails(user.squad_id);
         }
       } else {
@@ -112,6 +131,7 @@ export default function App() {
         setClaimedToday(user.last_claim_date === todayStr);
         setHasAutobot(user.has_autobot || false);
         setTwitterCompleted(user.twitter_completed || false);
+        setInvitedCount(user.invited_count || 0);
         
         if (user.username !== username) {
           await supabase
@@ -128,6 +148,25 @@ export default function App() {
 
     fetchUserData();
   }, [telegramId, username]);
+
+  // Davet edene ödül verme fonksiyonu
+  const addReferralBonus = async (referrerId) => {
+    let { data: refUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('telegram_id', referrerId)
+      .single();
+
+    if (refUser) {
+      const newRefPoints = (refUser.points || 0) + 1000;
+      const newInvitedCount = (refUser.invited_count || 0) + 1;
+
+      await supabase
+        .from('users')
+        .update({ points: newRefPoints, invited_count: newInvitedCount })
+        .eq('telegram_id', referrerId);
+    }
+  };
 
   const fetchSquadsList = async () => {
     let { data, error } = await supabase
@@ -220,6 +259,20 @@ export default function App() {
     target.appendChild(elem);
 
     setTimeout(() => elem.remove(), 800);
+  };
+
+  // Davet linkini kopyalama fonksiyonu
+  const copyInviteLink = () => {
+    // Botunun Telegram kullanıcı adı (Örn: CoreTap_Bot)
+    const botUsername = "CoreTap_Bot"; 
+    const inviteLink = `https://t.me/${botUsername}/app?start=ref_${telegramId}`;
+    
+    navigator.clipboard.writeText(inviteLink);
+    if (tg?.showAlert) {
+      tg.showAlert("Davet linki kopyalandı! Arkadaşlarınla paylaş.");
+    } else {
+      alert("Davet linki kopyalandı: " + inviteLink);
+    }
   };
 
   const handleCompleteTwitterQuest = async () => {
@@ -637,9 +690,21 @@ export default function App() {
         </div>
       )}
 
-      {/* GÖREVLER SEKMESİ */}
+      {/* GÖREVLER & DAVET SEKMESİ */}
       {activeTab === 'quests' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
+          {/* Arkadaş Davet Kartı */}
+          <div className="bg-gradient-to-r from-cyan-900/40 to-blue-950/40 border border-cyan-500/40 p-4 rounded-2xl shadow-xl">
+            <h2 className="text-lg font-black text-white mb-1">🎁 Arkadaşını Davet Et</h2>
+            <p className="text-xs text-slate-300 mb-3">Her arkadaşın için <span className="text-yellow-400 font-bold">+1,000 💎</span> kazan! (Toplam Davet: {invitedCount})</p>
+            <button 
+              onClick={copyInviteLink}
+              className="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-2.5 rounded-xl text-xs cursor-pointer transition-colors"
+            >
+              🔗 Davet Linkini Kopyala
+            </button>
+          </div>
+
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
             <h2 className="text-lg font-black text-white mb-1">🎯 Sosyal Görevler</h2>
             <p className="text-xs text-slate-400 mb-4">X (Twitter)'da bizi takip et, anında ekstra koinleri kap!</p>
@@ -724,7 +789,7 @@ export default function App() {
         </div>
       )}
 
-      {/* PROFİL SEKMESİ (Cüzdan Bilgisi Eklendi) */}
+      {/* PROFİL SEKMESİ */}
       {activeTab === 'profile' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col items-center gap-4 py-6">
           <div className="w-24 h-24 rounded-full bg-amber-700/80 border-4 border-amber-500/50 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-amber-900/40">
@@ -747,6 +812,10 @@ export default function App() {
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-400">Kullanıcı Adı:</span>
               <span className="font-bold text-cyan-400">@{username}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">Davet Edilenler:</span>
+              <span className="font-bold text-cyan-400">{invitedCount} Kişi</span>
             </div>
             <div className="flex justify-between items-center text-sm border-t border-slate-800 pt-3">
               <span className="text-slate-400">TON Cüzdanı:</span>
