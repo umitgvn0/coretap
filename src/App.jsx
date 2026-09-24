@@ -6,15 +6,11 @@ export default function App() {
   const tg = window.Telegram?.WebApp;
   const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   
-  // Telegram'dan gelen gerçek isim, kullanıcı adı ve bot adını alıyoruz
   const firstName = tg?.initDataUnsafe?.user?.first_name || (telegramId === 6892178102 ? 'Ümit' : 'Muhammet');
   const username = tg?.initDataUnsafe?.user?.username || firstName;
   const botUsername = tg?.initDataUnsafe?.bot?.username || "coretap_bot";
-
-  // Telegram Start Parametresinden (Referans ID) yakalama
   const startParam = tg?.initDataUnsafe?.start_param || '';
 
-  // TON Connect Hook'ları
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
 
@@ -33,14 +29,12 @@ export default function App() {
   const [streakDay, setStreakDay] = useState(1);
   const [claimedToday, setClaimedToday] = useState(false);
 
-  // Klan State'leri
   const [squadNameInput, setSquadNameInput] = useState('');
   const [squadSearchQuery, setSquadSearchQuery] = useState('');
   const [mySquad, setMySquad] = useState(null);
   const [squadsList, setSquadsList] = useState([]);
   const [squadMembers, setSquadMembers] = useState([]);
 
-  // Görevler State'i
   const [twitterCompleted, setTwitterCompleted] = useState(false);
 
   const dailyRewards = [
@@ -71,6 +65,7 @@ export default function App() {
     return d.toISOString().split('T')[0];
   };
 
+  // 🛠️ DÜZELTME: activeTab bağımlılığı kaldırıldı, böylece sekme değiştirince enerji sıfırlanmıyor!
   useEffect(() => {
     async function fetchUserData() {
       let { data, error } = await supabase
@@ -111,7 +106,7 @@ export default function App() {
         if (!insertError && newData && newData.length > 0) {
           const user = newData[0];
           setPoints(user.points);
-          setEnergy(user.energy);
+          setEnergy(user.energy !== undefined ? user.energy : 100);
           setTapPower(user.tap_power);
           setStreakDay(user.streak || 1);
           setClaimedToday(user.last_claim_date === todayStr);
@@ -123,7 +118,7 @@ export default function App() {
       } else {
         const user = data[0];
         setPoints(user.points);
-        setEnergy(user.energy);
+        setEnergy(user.energy !== undefined ? user.energy : 100);
         setTapPower(user.tap_power);
         setStreakDay(user.streak || 1);
         setClaimedToday(user.last_claim_date === todayStr);
@@ -145,7 +140,7 @@ export default function App() {
     }
 
     fetchUserData();
-  }, [telegramId, username, activeTab]);
+  }, [telegramId, username]);
 
   const addReferralBonus = async (referrerId) => {
     let { data: refUser } = await supabase
@@ -203,10 +198,17 @@ export default function App() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setEnergy((prev) => (prev < maxEnergy ? prev + 1 : maxEnergy));
+      setEnergy((prev) => {
+        if (prev < maxEnergy) {
+          const updatedEnergy = prev + 1;
+          syncWithSupabase(points, updatedEnergy);
+          return updatedEnergy;
+        }
+        return prev;
+      });
     }, 2000);
     return () => clearInterval(timer);
-  }, [maxEnergy]);
+  }, [maxEnergy, points]);
 
   useEffect(() => {
     if (!hasAutobot) return;
@@ -260,7 +262,6 @@ export default function App() {
 
   const copyInviteLink = () => {
     const inviteLink = `https://t.me/${botUsername}/app?start=ref_${telegramId}`;
-    
     navigator.clipboard.writeText(inviteLink);
     if (tg?.showAlert) {
       tg.showAlert("Davet linki kopyalandı! Arkadaşlarınla paylaş.");
@@ -271,7 +272,6 @@ export default function App() {
 
   const handleCompleteTwitterQuest = async () => {
     if (twitterCompleted) return;
-
     window.open('https://x.com/coretapofficial', '_blank');
 
     const rewardAmount = 500;
@@ -525,7 +525,6 @@ export default function App() {
       <div className="absolute top-[-20%] left-[-20%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-20%] w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      {/* Üst Bar / ID ve Cüzdan Bağlantısı */}
       <div className="w-full max-w-md bg-slate-900/60 border border-slate-800 px-4 py-2 rounded-xl text-xs text-slate-300 flex justify-between items-center z-10 mb-2">
         <span className="text-slate-400">ID: <strong className="text-cyan-400">{telegramId}</strong></span>
         <button 
@@ -536,7 +535,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* Üst Bar (Oyun Ekranı İçin) */}
       {activeTab !== 'profile' && (
         <div className="w-full max-w-md flex justify-between items-center bg-slate-900/85 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl z-10">
           <div>
@@ -558,7 +556,6 @@ export default function App() {
         </div>
       )}
 
-      {/* OYUN SEKMESİ */}
       {activeTab === 'game' && (
         <div className="flex flex-col items-center justify-center my-auto z-10 relative w-full">
           {mySquad && (
@@ -587,7 +584,6 @@ export default function App() {
         </div>
       )}
 
-      {/* KLANLAR SEKMESİ */}
       {activeTab === 'squads' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
@@ -684,10 +680,8 @@ export default function App() {
         </div>
       )}
 
-      {/* GÖREVLER & DAVET SEKMESİ */}
       {activeTab === 'quests' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
-          {/* Arkadaş Davet Kartı */}
           <div className="bg-gradient-to-r from-cyan-900/40 to-blue-950/40 border border-cyan-500/40 p-4 rounded-2xl shadow-xl">
             <h2 className="text-lg font-black text-white mb-1">🎁 Arkadaşını Davet Et</h2>
             <p className="text-xs text-slate-300 mb-3">Her arkadaşın için <span className="text-yellow-400 font-bold">+1,000 💎</span> kazan! (Toplam Davet: {invitedCount})</p>
@@ -726,7 +720,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MAĞAZA SEKMESİ */}
       {activeTab === 'store' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border border-purple-500/40 p-4 rounded-2xl shadow-xl">
@@ -783,7 +776,6 @@ export default function App() {
         </div>
       )}
 
-      {/* PROFİL SEKMESİ */}
       {activeTab === 'profile' && (
         <div className="w-full max-w-md my-auto z-10 flex flex-col items-center gap-4 py-6">
           <div className="w-24 h-24 rounded-full bg-amber-700/80 border-4 border-amber-500/50 flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-amber-900/40">
@@ -839,7 +831,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigasyon Çubuğu */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-full max-w-md grid grid-cols-5 gap-1 bg-slate-900/95 backdrop-blur-md border border-slate-800 p-2 rounded-2xl z-50 text-center text-[10px] font-medium text-slate-400 shadow-2xl">
         <button onClick={() => setActiveTab('store')} className={`flex flex-col items-center justify-center py-1.5 rounded-xl cursor-pointer ${activeTab === 'store' ? 'bg-slate-800 text-cyan-400' : 'hover:bg-slate-800 hover:text-white'}`}>
           <span className="text-sm">🛍️</span>
