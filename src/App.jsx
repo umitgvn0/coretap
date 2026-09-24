@@ -4,12 +4,14 @@ import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 
 export default function App() {
   const tg = window.Telegram?.WebApp;
-  const telegramId = tg?.initDataUnsafe?.user?.id || 999999; 
   
-  const firstName = tg?.initDataUnsafe?.user?.first_name || (telegramId === 6892178102 ? 'Ümit' : 'Muhammet');
+  // 🛡️ GÜVENLİK GÜNCELLEMESİ: Rastgele ID üretimi silindi. Sadece gerçek Telegram ID'si kabul ediliyor.
+  // Geliştirme ortamında (Telegram dışı) çökmeyi engellemek için varsayılan fallback bırakıldı ama gerçek kullanıma uygun.
+  const [telegramId] = useState(() => tg?.initDataUnsafe?.user?.id || 999999);
+  
+  const firstName = tg?.initDataUnsafe?.user?.first_name || 'Oyuncu';
   const username = tg?.initDataUnsafe?.user?.username || firstName;
   const botUsername = tg?.initDataUnsafe?.bot?.username || "coretap_bot";
-  const startParam = tg?.initDataUnsafe?.start_param || '';
 
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
@@ -65,7 +67,14 @@ export default function App() {
     return d.toISOString().split('T')[0];
   };
 
-  // 🛠️ DÜZELTME: activeTab bağımlılığı kaldırıldı, böylece sekme değiştirince enerji sıfırlanmıyor!
+  const getStartParam = () => {
+    if (tg?.initDataUnsafe?.start_param) {
+      return tg.initDataUnsafe.start_param;
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('startapp') || urlParams.get('start') || '';
+  };
+
   useEffect(() => {
     async function fetchUserData() {
       let { data, error } = await supabase
@@ -74,13 +83,14 @@ export default function App() {
         .eq('telegram_id', telegramId);
 
       const todayStr = getTodayDateString();
+      const rawStartParam = getStartParam();
+
+      let referredByVal = null;
+      if (rawStartParam && rawStartParam.startsWith('ref_')) {
+        referredByVal = rawStartParam.replace('ref_', '');
+      }
 
       if (error || !data || data.length === 0) {
-        let referredByVal = null;
-        if (startParam && startParam.startsWith('ref_')) {
-          referredByVal = startParam.replace('ref_', '');
-        }
-
         let { data: newData, error: insertError } = await supabase
           .from('users')
           .insert([{ 
@@ -94,12 +104,12 @@ export default function App() {
             has_autobot: false,
             squad_id: null,
             twitter_completed: false,
-            referred_by: referredByVal,
+            referred_by: referredByVal ? Number(referredByVal) : null,
             invited_count: 0
           }])
           .select();
 
-        if (referredByVal) {
+        if (referredByVal && referredByVal !== String(telegramId)) {
           await addReferralBonus(referredByVal);
         }
 
@@ -261,7 +271,9 @@ export default function App() {
   };
 
   const copyInviteLink = () => {
-    const inviteLink = `https://t.me/${botUsername}/app?start=ref_${telegramId}`;
+    // DİKKAT: start yerine startapp yazıldı. 
+    // /app kısmının BotFather'daki Web App "Short Name" ile aynı olduğundan emin ol.
+    const inviteLink = `https://t.me/${botUsername}/app?startapp=ref_${telegramId}`;
     navigator.clipboard.writeText(inviteLink);
     if (tg?.showAlert) {
       tg.showAlert("Davet linki kopyalandı! Arkadaşlarınla paylaş.");
